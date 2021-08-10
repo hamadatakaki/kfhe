@@ -9,5 +9,3 @@ edition = "2018"
 [dependencies]
 rand = "0.8.4"
 rand_distr = "0.4.1"
-ndarray = "0.15.3"
-ndarray-rand = "0.14.0"
