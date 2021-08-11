@@ -1,12 +1,17 @@
-pub fn vadd(v: &Vec<u32>, w: &Vec<u32>) -> Vec<u32> {
-    v.iter()
-        .zip(w.iter())
-        .map(|(&x, &y)| x.wrapping_add(y))
-        .collect()
+use super::Torus;
+
+pub fn vadd<const N: usize>(v: &[Torus; N], w: &[Torus; N]) -> [Torus; N] {
+    let mut arr = [0; N];
+    for i in 0..N {
+        arr[i] = v[i].wrapping_add(w[i]);
+    }
+    arr
 }
 
-pub fn dot(v: &Vec<u32>, w: &Vec<u32>) -> u32 {
-    v.iter()
-        .zip(w.iter())
-        .fold(0, |acc, (&x, &y)| acc.wrapping_add(x.wrapping_mul(y)))
+pub fn dot<const N: usize>(v: &[Torus; N], w: &[Torus; N]) -> Torus {
+    let mut s: Torus = 0;
+    for i in 0..N {
+        s = s.wrapping_add(v[i].wrapping_mul(w[i]));
+    }
+    s
 }

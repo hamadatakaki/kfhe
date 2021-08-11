@@ -1,25 +1,40 @@
-use super::util::torus_to_ring;
+use super::util::{float_to_torus, Torus};
+
 use rand_distr::{Distribution, Normal, Uniform};
 
-pub fn modular_normal_dist(mu: f64, alpha: f64) -> u32 {
+pub fn modular_normal_dist(mu: f64, alpha: f64) -> Torus {
     let normal = Normal::new(mu, alpha).unwrap();
     let sample = normal.sample(&mut rand::thread_rng());
-    torus_to_ring((sample + 0.5) % 1. - 0.5)
+    float_to_torus(sample)
 }
 
-pub fn ndim_bin_uniform(n: usize) -> Vec<u32> {
+pub fn ndim_modular_normal_dist<const N: usize>(mu: f64, alpha: f64) -> [Torus; N] {
+    let normal = Normal::new(mu, alpha).unwrap();
+    let mut rng = rand::thread_rng();
+
+    let mut arr = [0; N];
+    for i in 0..N {
+        arr[i] = float_to_torus(normal.sample(&mut rng));
+    }
+    arr
+}
+
+pub fn ndim_bin_uniform<const N: usize>() -> [Torus; N] {
     let bin_uni = Uniform::new_inclusive(0, 1);
-    (0..n)
-        .map(|_| bin_uni.sample(&mut rand::thread_rng()))
-        .collect()
+    let mut rng = rand::thread_rng();
+    let mut arr = [0; N];
+    for i in 0..N {
+        arr[i] = bin_uni.sample(&mut rng);
+    }
+    arr
 }
 
-pub fn ndim_torus_uniform(n: usize) -> Vec<u32> {
+pub fn ndim_torus_uniform<const N: usize>() -> [Torus; N] {
     let torus_uni = Uniform::new_inclusive(-0.5, 0.5);
-    (0..n)
-        .map(|_| {
-            let r = torus_uni.sample(&mut rand::thread_rng());
-            torus_to_ring(r)
-        })
-        .collect()
+    let mut rng = rand::thread_rng();
+    let mut arr = [0; N];
+    for i in 0..N {
+        arr[i] = float_to_torus(torus_uni.sample(&mut rng));
+    }
+    arr
 }
