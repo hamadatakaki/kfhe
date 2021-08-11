@@ -38,3 +38,11 @@ pub fn ndim_torus_uniform<const N: usize>() -> [Torus; N] {
     }
     arr
 }
+
+pub fn random_bool_initialization<const N: usize>() -> [bool; N] {
+    let mut arr = [false; N];
+    for i in 0..N {
+        arr[i] = rand::random::<bool>();
+    }
+    arr
+}
