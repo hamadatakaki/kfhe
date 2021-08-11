@@ -1,7 +1,7 @@
 use super::params::trlwe;
 use super::sampling::{ndim_bin_uniform, ndim_modular_normal_dist, ndim_torus_uniform};
 use super::util::ops::{pmul, vadd, vsub};
-use super::util::{boolpoly_normalization, fring_to_torus_ring, BRing, Ring};
+use super::util::{boolpoly_normalization, fring_to_torus_ring, BRing, Ring, Torus};
 
 pub struct TRLWE {
     s: Ring,
@@ -32,4 +32,20 @@ impl TRLWE {
         }
         bs
     }
+}
+
+pub fn sample_extract_index((a, b): (Ring, Ring), k: usize) -> (Ring, Torus) {
+    let n = trlwe::N;
+    if k > n - 1 {
+        panic!("ArrayIndexOutOfBoundsException")
+    }
+    let mut ext_a = [0; trlwe::N];
+    for i in 0..n {
+        if i <= k {
+            ext_a[i] = a[k - i];
+        } else {
+            ext_a[i] = 0u32.wrapping_sub(a[n + k - i]);
+        }
+    }
+    (ext_a, b[k])
 }
