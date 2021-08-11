@@ -1,5 +1,5 @@
 use kfhe::tlwe::TLWE;
-use kfhe::util::vec::vadd;
+use kfhe::util::ops::vadd;
 
 fn _run_tlwe(msg: bool) -> bool {
     let tlwe = TLWE::new();

@@ -1,10 +1,11 @@
-pub mod vec;
+pub mod ops;
 
 use super::params::trlwe;
 
 pub type Torus = u32;
 pub type Ring = [Torus; trlwe::N];
 pub type FRing = [f64; trlwe::N];
+pub type BRing = [bool; trlwe::N];
 
 pub fn bool_normalization(b: bool) -> f64 {
     (2. * ((b as u8) as f64) - 1.) / 8.
@@ -23,8 +24,8 @@ pub fn float_to_torus(x: f64) -> Torus {
     ((x + 0.5) * length_ring) as u32
 }
 
-pub fn fring_to_torus_ring(xs: FRing) -> Ring {
-    let mut ring = [0; trlwe::N];
+pub fn fring_to_torus_ring<const N: usize>(xs: [f64; N]) -> [Torus; N] {
+    let mut ring = [0; N];
     for i in 0..xs.len() {
         ring[i] = float_to_torus(xs[i]);
     }
