@@ -25,7 +25,25 @@ impl TLWE {
 
     pub fn decrypt(&self, a: [Torus; tlwe::N], b: Torus) -> bool {
         let s = self.s.clone();
-        let m = b.wrapping_sub(dot(&a, &s)).wrapping_sub(2u32.pow(29));
+        let m = b.wrapping_sub(dot(&a, &s)).wrapping_sub(2u32.pow(28));
         m > 2u32.pow(31)
+    }
+}
+
+#[test]
+fn test_tlwe_enc_and_dec() {
+    use super::sampling::random_bool_initialization;
+
+    fn _run_tlwe(msg: bool) -> bool {
+        let tlwe = TLWE::new();
+        let (a, b) = tlwe.encrypt(msg);
+        tlwe.decrypt(a, b)
+    }
+
+    const T: usize = 1000;
+    let bs: [bool; T] = random_bool_initialization();
+    for i in 0..T {
+        let b = bs[i];
+        assert_eq!(!b, _run_tlwe(b), "{}", i + 1);
     }
 }
