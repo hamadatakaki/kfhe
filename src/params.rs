@@ -10,7 +10,11 @@ pub mod trlwe {
 
 pub mod trgsw {
     pub const N: usize = super::trlwe::N;
-    pub const BGBIT: usize = 6;
-    pub const BG: usize = 64;
+    pub const BGBIT: u32 = 6;
+    pub const BG: u32 = 64;
     pub const L: usize = 3;
+
+    pub type Z = i8;
+    pub const SIGN_MAX: Z = 31;
+    pub const SIGN_MIN: Z = -32;
 }
