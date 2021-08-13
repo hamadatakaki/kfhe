@@ -1,23 +1,27 @@
 use super::params::trgsw;
 use super::util::Ring;
 
-type Z = trgsw::Z;
-type Zpoly = [Z; trgsw::N];
+const N: usize = trgsw::N;
+const L: usize = trgsw::L;
+const BG: u32 = trgsw::BG;
 
-pub fn decomposition(poly: Ring) -> [Zpoly; trgsw::L] {
-    let mut decomped: [Zpoly; trgsw::L] = [[0; trgsw::N]; trgsw::L];
-    for n in 0..trgsw::N {
-        let mut a = poly[n] / 2u32.pow(32 - trgsw::L as u32 * trgsw::BGBIT);
+type Z = trgsw::Z;
+type Zpoly = [Z; N];
+
+pub fn decomposition(poly: Ring) -> [Zpoly; L] {
+    let mut decomped: [Zpoly; L] = [[0; N]; L];
+    for n in 0..N {
+        let mut a = poly[n] / 2u32.pow(32 - L as u32 * trgsw::BGBIT);
         let mut cflag = false;
 
-        for l in 0..trgsw::L {
-            let mut r = a % trgsw::BG;
+        for l in 0..L {
+            let mut r = a % BG;
             r += cflag as u32;
 
             // type-cast が乱暴すぎるため注意. L, BGBIT が違うと動かなくなる.
-            let s = if r >= (trgsw::BG / 2) {
+            let s = if r >= (BG / 2) {
                 cflag = true;
-                r as Z - trgsw::BG as Z
+                r as Z - BG as Z
             } else {
                 cflag = false;
                 r as Z
@@ -32,8 +36,8 @@ pub fn decomposition(poly: Ring) -> [Zpoly; trgsw::L] {
                 assert!(s <= trgsw::SIGN_MAX);
             }
 
-            decomped[trgsw::L - l - 1][n] = s;
-            a /= trgsw::BG;
+            decomped[L - l - 1][n] = s;
+            a /= BG;
         }
     }
     decomped
@@ -63,16 +67,16 @@ fn test_decomposition() {
     let b_hat = decomposition(b);
 
     // (4) reconstruct a and b by decomposition
-    let mut weight: [Torus; trgsw::L] = [0; trgsw::L];
-    for i in 0..trgsw::L {
+    let mut weight: [Torus; L] = [0; L];
+    for i in 0..L {
         weight[i] = float_to_torus((trgsw::BG as f64).powi(-(i as i32 + 1)))
     }
-    let mut a_: Ring = [0; trgsw::N];
-    let mut b_: Ring = [0; trgsw::N];
-    for j in 0..trgsw::N {
+    let mut a_: Ring = [0; N];
+    let mut b_: Ring = [0; N];
+    for j in 0..N {
         let mut sa: Torus = 0;
         let mut sb: Torus = 0;
-        for i in 0..trgsw::L {
+        for i in 0..L {
             sa = sa.wrapping_add(unsigning(a_hat[i][j]).wrapping_mul(weight[i]));
             sb = sb.wrapping_add(unsigning(b_hat[i][j]).wrapping_mul(weight[i]));
         }
