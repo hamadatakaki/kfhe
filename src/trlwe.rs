@@ -12,7 +12,15 @@ pub struct TRLWE {
 impl TRLWE {
     pub fn new() -> Self {
         let s = ndim_bin_uniform();
+        Self::from_secret(s)
+    }
+
+    pub fn from_secret(s: Ring) -> Self {
         Self { s }
+    }
+
+    pub fn get_secret(&self) -> Ring {
+        self.s.clone()
     }
 
     pub fn encrypt(&self, msg: BRing) -> (Ring, Ring) {
@@ -21,6 +29,14 @@ impl TRLWE {
         let a: Ring = ndim_torus_uniform();
         let e: Ring = ndim_modular_normal_dist(0., trlwe::ALPHA);
         let b = vadd(&vadd(&pmul(&a, &s), &m), &e);
+        (a, b)
+    }
+
+    pub fn encrypt_torus(&self, msg: Ring) -> (Ring, Ring) {
+        let s = self.s.clone();
+        let a: Ring = ndim_torus_uniform();
+        let e: Ring = ndim_modular_normal_dist(0., trlwe::ALPHA);
+        let b = vadd(&vadd(&pmul(&a, &s), &msg), &e);
         (a, b)
     }
 
