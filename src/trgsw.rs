@@ -4,6 +4,8 @@ use super::util::params::trlwe::Ring;
 const N: usize = trgsw::N;
 const L: usize = trgsw::L;
 const BG: u32 = trgsw::BG;
+const BGBIT: u32 = trgsw::BGBIT;
+const LBG: u32 = L as u32 * BGBIT;
 
 type Z = trgsw::Z;
 type Zpoly = [Z; N];
@@ -11,14 +13,11 @@ type Zpoly = [Z; N];
 pub fn decomposition(poly: Ring) -> [Zpoly; L] {
     let mut decomped: [Zpoly; L] = [[0; N]; L];
     for n in 0..N {
-        let mut a = poly[n] / 2u32.pow(32 - L as u32 * trgsw::BGBIT);
+        let mut a = poly[n] >> (32 - LBG);
         let mut cflag = false;
-
         for l in 0..L {
-            let mut r = a % BG;
-            r += cflag as u32;
+            let r = a % BG + cflag as u32;
 
-            // type-cast が乱暴なため注意. BGBIT, Zの型が違うと動かなくなる.
             let s = if r >= (BG / 2) {
                 cflag = true;
                 (r - (BG / 2)) as Z - (BG / 2) as Z
@@ -30,8 +29,7 @@ pub fn decomposition(poly: Ring) -> [Zpoly; L] {
             if s < trgsw::SIGN_MIN {
                 println!("{} -> {}", r, s);
                 assert!(s >= trgsw::SIGN_MIN);
-            }
-            if s > trgsw::SIGN_MAX {
+            } else if s > trgsw::SIGN_MAX {
                 println!("{} -> {}", r, s);
                 assert!(s <= trgsw::SIGN_MAX);
             }
@@ -45,8 +43,6 @@ pub fn decomposition(poly: Ring) -> [Zpoly; L] {
 
 #[test]
 fn test_decomposition() {
-    // fail case
-
     use super::trlwe::TRLWE;
     use super::util::params::trlwe::BRing;
     use super::util::sampling::random_bool_initialization;
@@ -70,10 +66,8 @@ fn test_decomposition() {
             sa += (a_hat[i][j] as i64) * (BG as i64).pow((L - i) as u32 - 1);
             sb += (b_hat[i][j] as i64) * (BG as i64).pow((L - i) as u32 - 1);
         }
-        sa = sa.rem_euclid(2i64.pow(L as u32 * trgsw::BGBIT)) << (32 - L as u32 * trgsw::BGBIT);
-        sb = sb.rem_euclid(2i64.pow(L as u32 * trgsw::BGBIT)) << (32 - L as u32 * trgsw::BGBIT);
-        a_[j] = sa as u32;
-        b_[j] = sb as u32;
+        a_[j] = (sa.rem_euclid(2i64.pow(LBG)) << (32 - LBG)) as u32;
+        b_[j] = (sb.rem_euclid(2i64.pow(LBG)) << (32 - LBG)) as u32;
     }
 
     // (5) decrypt by TRLWE, and assertion!
