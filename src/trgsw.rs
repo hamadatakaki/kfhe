@@ -48,27 +48,8 @@ fn test_decomposition() {
     // fail case
 
     use super::trlwe::TRLWE;
-    use super::util::float_to_torus;
-    use super::util::params::trlwe::{BRing, Torus};
+    use super::util::params::trlwe::BRing;
     use super::util::sampling::random_bool_initialization;
-
-    fn unsigning(s: Z) -> u32 {
-        if s < 0 {
-            (s + (trgsw::BG / 2) as i8) as u32 + (trgsw::BG / 2)
-        } else {
-            s as u32
-        }
-    }
-
-    // // Debug
-    // fn debug_array_u32_to_f64(ring: Ring) -> [f64; N] {
-    //     let mut arr = [0.; N];
-    //     for i in 0..N {
-    //         let r = ring[i] as f64;
-    //         arr[i] = r / 2f64.powi(32) - 0.5;
-    //     }
-    //     arr
-    // }
 
     // (1) random BRing, (2) encrypt by TRLWE
     let b_poly: BRing = random_bool_initialization();
@@ -80,28 +61,20 @@ fn test_decomposition() {
     let b_hat = decomposition(b);
 
     // (4) reconstruct a and b by decomposition
-    let mut weight: [Torus; L] = [0; L];
-    for i in 0..L {
-        weight[i] = float_to_torus((trgsw::BG as f64).powi(-(i as i32) - 1))
-    }
     let mut a_: Ring = [0; N];
     let mut b_: Ring = [0; N];
     for j in 0..N {
-        let mut sa: Torus = 0;
-        let mut sb: Torus = 0;
+        let mut sa: i64 = 0;
+        let mut sb: i64 = 0;
         for i in 0..L {
-            sa = sa.wrapping_add(unsigning(a_hat[i][j]).wrapping_mul(weight[i]));
-            sb = sb.wrapping_add(unsigning(b_hat[i][j]).wrapping_mul(weight[i]));
+            sa += (a_hat[i][j] as i64) * (BG as i64).pow((L - i) as u32 - 1);
+            sb += (b_hat[i][j] as i64) * (BG as i64).pow((L - i) as u32 - 1);
         }
-        a_[j] = sa;
-        b_[j] = sb;
+        sa = sa.rem_euclid(2i64.pow(L as u32 * trgsw::BGBIT)) << (32 - L as u32 * trgsw::BGBIT);
+        sb = sb.rem_euclid(2i64.pow(L as u32 * trgsw::BGBIT)) << (32 - L as u32 * trgsw::BGBIT);
+        a_[j] = sa as u32;
+        b_[j] = sb as u32;
     }
-
-    // // Debug
-    // println!(" a: {:?}", debug_array_u32_to_f64(a));
-    // println!("Da: {:?}", debug_array_u32_to_f64(a_));
-    // println!(" b: {:?}", debug_array_u32_to_f64(b));
-    // println!("Db: {:?}", debug_array_u32_to_f64(b_));
 
     // (5) decrypt by TRLWE, and assertion!
     assert_eq!(b_poly, trlwe.decrypt(a_, b_))
