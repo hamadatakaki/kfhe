@@ -1,7 +1,7 @@
-use super::params::tlwe;
-use super::sampling::{modular_normal_dist, ndim_bin_uniform, ndim_torus_uniform};
 use super::util::ops::dot;
-use super::util::{bool_normalization, float_to_torus, Torus};
+use super::util::params::{tlwe, Torus};
+use super::util::sampling::{modular_normal_dist, ndim_bin_uniform, ndim_torus_uniform};
+use super::util::{bool_normalization, float_to_torus};
 
 const N: usize = tlwe::N;
 
@@ -34,7 +34,7 @@ impl TLWE {
 
 #[test]
 fn test_tlwe_enc_and_dec() {
-    use super::sampling::random_bool_initialization;
+    use super::util::sampling::random_bool_initialization;
 
     fn _run_tlwe(msg: bool) -> bool {
         let tlwe = TLWE::new();

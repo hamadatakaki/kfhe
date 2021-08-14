@@ -1,11 +1,8 @@
 pub mod ops;
+pub mod params;
+pub mod sampling;
 
-use super::params::trlwe;
-
-pub type Torus = u32;
-pub type Ring = [Torus; trlwe::N];
-pub type FRing = [f64; trlwe::N];
-pub type BRing = [bool; trlwe::N];
+use params::Torus;
 
 pub fn bool_normalization(b: bool) -> f64 {
     (2. * ((b as u8) as f64) - 1.) / 8.

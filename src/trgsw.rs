@@ -1,5 +1,5 @@
-use super::params::trgsw;
-use super::util::Ring;
+use super::util::params::trgsw;
+use super::util::params::trlwe::Ring;
 
 const N: usize = trgsw::N;
 const L: usize = trgsw::L;
@@ -18,10 +18,10 @@ pub fn decomposition(poly: Ring) -> [Zpoly; L] {
             let mut r = a % BG;
             r += cflag as u32;
 
-            // type-cast が乱暴すぎるため注意. L, BGBIT が違うと動かなくなる.
+            // type-cast が乱暴なため注意. BGBIT, Zの型が違うと動かなくなる.
             let s = if r >= (BG / 2) {
                 cflag = true;
-                r as Z - BG as Z
+                (r - (BG / 2)) as Z - (BG / 2) as Z
             } else {
                 cflag = false;
                 r as Z
@@ -45,17 +45,30 @@ pub fn decomposition(poly: Ring) -> [Zpoly; L] {
 
 #[test]
 fn test_decomposition() {
-    use super::sampling::random_bool_initialization;
+    // fail case
+
     use super::trlwe::TRLWE;
-    use super::util::{float_to_torus, BRing, Torus};
+    use super::util::float_to_torus;
+    use super::util::params::trlwe::{BRing, Torus};
+    use super::util::sampling::random_bool_initialization;
 
     fn unsigning(s: Z) -> u32 {
         if s < 0 {
-            (s + 32) as u32 + 32
+            (s + (trgsw::BG / 2) as i8) as u32 + (trgsw::BG / 2)
         } else {
             s as u32
         }
     }
+
+    // // Debug
+    // fn debug_array_u32_to_f64(ring: Ring) -> [f64; N] {
+    //     let mut arr = [0.; N];
+    //     for i in 0..N {
+    //         let r = ring[i] as f64;
+    //         arr[i] = r / 2f64.powi(32) - 0.5;
+    //     }
+    //     arr
+    // }
 
     // (1) random BRing, (2) encrypt by TRLWE
     let b_poly: BRing = random_bool_initialization();
@@ -69,7 +82,7 @@ fn test_decomposition() {
     // (4) reconstruct a and b by decomposition
     let mut weight: [Torus; L] = [0; L];
     for i in 0..L {
-        weight[i] = float_to_torus((trgsw::BG as f64).powi(-(i as i32 + 1)))
+        weight[i] = float_to_torus((trgsw::BG as f64).powi(-(i as i32) - 1))
     }
     let mut a_: Ring = [0; N];
     let mut b_: Ring = [0; N];
@@ -83,6 +96,12 @@ fn test_decomposition() {
         a_[j] = sa;
         b_[j] = sb;
     }
+
+    // // Debug
+    // println!(" a: {:?}", debug_array_u32_to_f64(a));
+    // println!("Da: {:?}", debug_array_u32_to_f64(a_));
+    // println!(" b: {:?}", debug_array_u32_to_f64(b));
+    // println!("Db: {:?}", debug_array_u32_to_f64(b_));
 
     // (5) decrypt by TRLWE, and assertion!
     assert_eq!(b_poly, trlwe.decrypt(a_, b_))

@@ -1,7 +1,7 @@
-use super::params::trlwe;
-use super::sampling::{ndim_bin_uniform, ndim_modular_normal_dist, ndim_torus_uniform};
 use super::util::ops::{pmul, vadd, vsub};
-use super::util::{boolpoly_normalization, fring_to_torus_ring, BRing, Ring, Torus};
+use super::util::params::trlwe::{self, BRing, Ring, Torus};
+use super::util::sampling::{ndim_bin_uniform, ndim_modular_normal_dist, ndim_torus_uniform};
+use super::util::{boolpoly_normalization, fring_to_torus_ring};
 
 const N: usize = trlwe::N;
 
@@ -36,7 +36,7 @@ impl TRLWE {
     }
 }
 
-pub fn sample_extract_index((a, b): (Ring, Ring), k: usize) -> (Ring, Torus) {
+pub fn sample_extract_index(a: Ring, b: Ring, k: usize) -> (Ring, Torus) {
     let n = N;
     if k > n - 1 {
         panic!("ArrayIndexOutOfBoundsException")
@@ -54,7 +54,7 @@ pub fn sample_extract_index((a, b): (Ring, Ring), k: usize) -> (Ring, Torus) {
 
 #[test]
 fn test_trlwe_enc_and_dec() {
-    use super::sampling::random_bool_initialization;
+    use super::util::sampling::random_bool_initialization;
 
     fn _run_trlwe(bs: BRing) -> BRing {
         let trlwe = TRLWE::new();
@@ -68,9 +68,8 @@ fn test_trlwe_enc_and_dec() {
 
 #[test]
 fn test_sample_extract_index() {
-    use super::sampling::random_bool_initialization;
     use super::util::ops::dot;
-    use super::util::Torus;
+    use super::util::sampling::random_bool_initialization;
 
     use rand;
     use rand_distr::{Distribution, Uniform};
@@ -90,7 +89,7 @@ fn test_sample_extract_index() {
     let (a, b) = trlwe.encrypt(bs);
 
     // Sample Extract Index
-    let (ext_a, ext_b) = sample_extract_index((a, b), index);
+    let (ext_a, ext_b) = sample_extract_index(a, b, index);
 
     let msg = decrypt_as_tlwe(ext_a, ext_b, trlwe.s);
     assert_eq!(bs[index], msg);

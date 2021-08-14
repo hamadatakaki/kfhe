@@ -1,4 +1,4 @@
-use super::Torus;
+use super::params::Torus;
 
 pub fn vadd<const N: usize>(v: &[Torus; N], w: &[Torus; N]) -> [Torus; N] {
     let mut arr = [0; N];
