@@ -23,15 +23,6 @@ impl TRLWE {
         self.s.clone()
     }
 
-    pub fn encrypt(&self, msg: BRing) -> (Ring, Ring) {
-        let m = fring_to_torus_ring(boolpoly_normalization(msg));
-        let s = self.s.clone();
-        let a: Ring = ndim_torus_uniform();
-        let e: Ring = ndim_modular_normal_dist(0., trlwe::ALPHA);
-        let b = vadd(&vadd(&pmul(&a, &s), &m), &e);
-        (a, b)
-    }
-
     pub fn encrypt_torus(&self, msg: Ring) -> (Ring, Ring) {
         let s = self.s.clone();
         let a: Ring = ndim_torus_uniform();
@@ -40,15 +31,25 @@ impl TRLWE {
         (a, b)
     }
 
+    pub fn encrypt(&self, msg: BRing) -> (Ring, Ring) {
+        let m = fring_to_torus_ring(boolpoly_normalization(msg));
+        self.encrypt_torus(m)
+    }
+
     pub fn decrypt(&self, a: Ring, b: Ring) -> BRing {
+        // let offset = [2u32.pow(28); N];
+        // let m = vsub(&self.decrypt_torus(a, b), &offset);
+        let m = self.decrypt_torus(a, b);
+
         let mut bs = [false; N];
-        let offset = [2u32.pow(28); N];
-        let s = self.s.clone();
-        let m = vsub(&vsub(&b, &pmul(&a, &s)), &offset);
         for i in 0..N {
             bs[i] = m[i] <= 2u32.pow(31);
         }
         bs
+    }
+
+    pub fn decrypt_torus(&self, a: Ring, b: Ring) -> Ring {
+        vsub(&b, &pmul(&a, &self.get_secret()))
     }
 }
 

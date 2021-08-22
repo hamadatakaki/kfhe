@@ -17,6 +17,7 @@ pub mod trlwe {
 
 pub mod trgsw {
     pub type Z = i8;
+
     pub const N: usize = super::trlwe::N;
     pub const BGBIT: u32 = 6;
     pub const BG: u32 = 64;
