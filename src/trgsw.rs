@@ -111,10 +111,6 @@ pub fn decomposition(a: Ring, b: Ring) -> Decomposition {
 }
 
 pub fn external_product((a_bar, b_bar): Decomposition, matrix: TRGSWMatrix) -> (Ring, Ring) {
-    // 方針：
-    // 1. Decompositionのテストケースを修正する
-    // 2. それに従って、i8係数の多項式の各桁の係数で修正していく
-
     let mut a: Ring = [0; N];
     let mut b: Ring = [0; N];
     for j in 0..N {
