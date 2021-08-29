@@ -1,5 +1,3 @@
-mod naive;
-
 use super::trlwe::TRLWE;
 use super::util::ops::{intpoly_mul_as_torus, rmadd};
 use super::util::params::trgsw;
@@ -61,12 +59,6 @@ impl TRGSW {
         let mut mu = [0; N];
         mu[0] = m;
         self.coefficient_matrix(mu)
-    }
-
-    fn _coefficient_without_zero_matrix_add(self, m: i8) -> TRGSWMatrix {
-        let mut mu = [0; N];
-        mu[0] = m;
-        self._coefficient_matrix(mu)
     }
 }
 
@@ -190,6 +182,7 @@ fn test_zero_matrix_multiple() {
     let (a_, b_) = external_product(decomp, matrix);
     let ring = trlwe.decrypt_torus(a_, b_);
     let offset = [2u32.pow(28); N];
+
     let m = vsub(&ring, &offset);
     let mut counter = 0;
     for i in 0..N {
@@ -211,31 +204,6 @@ fn test_external_product() {
 
     let trgsw = TRGSW::new(trlwe.get_secret());
     let matrix = trgsw.coefficient(1);
-
-    let (a_, b_) = external_product(decomp, matrix);
-    let dec_bs = trlwe.decrypt(a_, b_);
-
-    let mut counter = 0;
-    for i in 0..N {
-        counter += (bs[i] != dec_bs[i]) as usize;
-    }
-
-    assert!(counter == 0, "counter is {}", counter);
-}
-
-#[test]
-fn test_external_product_without_zero_matrix_add() {
-    use super::trlwe::TRLWE;
-    use super::util::params::trlwe::BRing;
-    use super::util::sampling::random_bool_initialization;
-
-    let bs: BRing = random_bool_initialization();
-    let trlwe = TRLWE::new();
-    let (a, b) = trlwe.encrypt(bs);
-    let decomp = decomposition(a, b);
-
-    let trgsw = TRGSW::new(trlwe.get_secret());
-    let matrix = trgsw._coefficient_without_zero_matrix_add(1);
 
     let (a_, b_) = external_product(decomp, matrix);
     let dec_bs = trlwe.decrypt(a_, b_);
