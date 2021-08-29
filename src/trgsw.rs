@@ -1,5 +1,5 @@
 use super::trlwe::TRLWE;
-use super::util::ops::{intpoly_mul_as_torus, rmadd};
+use super::util::ops::{intpoly_mul_as_torus, pmul, rmadd, vadd, vsub};
 use super::util::params::trgsw;
 use super::util::params::trlwe::Ring;
 use super::util::{float_to_torus, zpoly_to_ring};
@@ -55,10 +55,20 @@ impl TRGSW {
         matrix
     }
 
-    pub fn coefficient(self, m: i8) -> TRGSWMatrix {
+    pub fn coefficient(&self, m: i8) -> TRGSWMatrix {
         let mut mu = [0; N];
         mu[0] = m;
         self.coefficient_matrix(mu)
+    }
+
+    pub fn cmux(&self, (a0, b0): (Ring, Ring), (a1, b1): (Ring, Ring), flag: bool) -> (Ring, Ring) {
+        let a_true = vsub(&a1, &a0);
+        let b_true = vsub(&b1, &b0);
+        let matrix = self.coefficient(flag as i8);
+        let (enc_a, enc_b) = external_product(a_true, b_true, matrix);
+        let a_ret = vadd(&enc_a, &a0);
+        let b_ret = vadd(&enc_b, &b0);
+        (a_ret, b_ret)
     }
 }
 
@@ -97,8 +107,12 @@ pub fn decomposition(a: Ring, b: Ring) -> Decomposition {
     (a_decomp, b_decomp)
 }
 
-pub fn external_product((a_bar, b_bar): Decomposition, matrix: TRGSWMatrix) -> (Ring, Ring) {
-    use super::util::ops::{pmul, vadd};
+pub fn external_product(a: Ring, b: Ring, matrix: TRGSWMatrix) -> (Ring, Ring) {
+    let decomp = decomposition(a, b);
+    _external_product(decomp, matrix)
+}
+
+pub fn _external_product((a_bar, b_bar): Decomposition, matrix: TRGSWMatrix) -> (Ring, Ring) {
     let mut a_: Ring = [0; N];
     let mut b_: Ring = [0; N];
     for i in 0..L {
@@ -179,7 +193,7 @@ fn test_zero_matrix_multiple() {
     let decomp = decomposition(a, b);
     let trgsw = TRGSW::new(trlwe.get_secret());
     let matrix = trgsw.zero_matrix();
-    let (a_, b_) = external_product(decomp, matrix);
+    let (a_, b_) = _external_product(decomp, matrix);
     let ring = trlwe.decrypt_torus(a_, b_);
     let offset = [2u32.pow(28); N];
 
@@ -205,7 +219,7 @@ fn test_external_product() {
     let trgsw = TRGSW::new(trlwe.get_secret());
     let matrix = trgsw.coefficient(1);
 
-    let (a_, b_) = external_product(decomp, matrix);
+    let (a_, b_) = _external_product(decomp, matrix);
     let dec_bs = trlwe.decrypt(a_, b_);
 
     let mut counter = 0;
@@ -214,4 +228,36 @@ fn test_external_product() {
     }
 
     assert!(counter == 0, "counter is {}", counter);
+}
+
+#[test]
+fn test_cmux() {
+    use super::trlwe::TRLWE;
+    use super::util::params::trlwe::BRing;
+    use super::util::sampling::random_bool_initialization;
+
+    let trlwe = TRLWE::new();
+
+    let bs1: BRing = random_bool_initialization();
+    let bs0: BRing = random_bool_initialization();
+    let enc0 = trlwe.encrypt(bs0);
+    let enc1 = trlwe.encrypt(bs1);
+
+    let trgsw = TRGSW::new(trlwe.get_secret());
+
+    let (a, b) = trgsw.cmux(enc0, enc1, true);
+    let dec_bs = trlwe.decrypt(a, b);
+    let mut c1 = 0;
+    for i in 0..N {
+        c1 += (bs1[i] != dec_bs[i]) as usize;
+    }
+
+    let (a, b) = trgsw.cmux(enc0, enc1, false);
+    let dec_bs = trlwe.decrypt(a, b);
+    let mut c2 = 0;
+    for i in 0..N {
+        c2 += (bs0[i] != dec_bs[i]) as usize;
+    }
+    assert!(c1 == 0, "counter is {}", c1);
+    assert!(c2 == 0, "counter is {}", c2);
 }
