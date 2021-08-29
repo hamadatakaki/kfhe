@@ -50,7 +50,7 @@ pub fn tscale(u: Torus, sc: i8) -> Torus {
 
 pub fn intpoly_mul_as_torus<const N: usize>(zs: [i8; N], t: Torus) -> [Torus; N] {
     let mut ring = [0; N];
-    for i in 0..zs.len() {
+    for i in 0..N {
         ring[i] = tscale(t, zs[i]);
     }
     ring

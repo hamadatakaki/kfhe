@@ -18,12 +18,22 @@ pub fn boolpoly_normalization<const N: usize>(bs: [bool; N]) -> [f64; N] {
 
 pub fn float_to_torus(x: f64) -> Torus {
     // [-0.5, 0.5) to Torus(u32)
+    //      [-0.5, 0) to [2^31, 2^32)
+    //      [0, 0.5)  to [0, 2^31)
 
     assert!(x >= -0.5);
     assert!(x < 0.5);
 
     let length_ring = 2f64.powi(32);
     ((if x < 0. { x + 1. } else { x }) * length_ring) as u32
+}
+
+pub fn torus_to_float(t: Torus) -> f64 {
+    if t >= 2u32.pow(31) {
+        (t as f64 / 2f64.powi(32)) - 1.
+    } else {
+        t as f64 / 2f64.powi(32)
+    }
 }
 
 pub fn fring_to_torus_ring<const N: usize>(xs: [f64; N]) -> [Torus; N] {
@@ -39,4 +49,10 @@ fn test_float_to_torus() {
     assert_eq!(float_to_torus(0.), 0);
     assert_eq!(float_to_torus(0.5 - 1. / 2f64.powi(32)), 2u32.pow(31) - 1);
     assert_eq!(float_to_torus(-0.5), 2u32.pow(31));
+}
+
+#[test]
+fn test_torus_to_float() {
+    assert_eq!(torus_to_float(float_to_torus(0.)), 0.);
+    assert_eq!(torus_to_float(float_to_torus(-0.5)), -0.5);
 }

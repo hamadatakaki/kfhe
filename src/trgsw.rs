@@ -1,8 +1,8 @@
 use super::trlwe::TRLWE;
 use super::util::float_to_torus;
 use super::util::ops::{intpoly_mul_as_torus, rmadd};
-use super::util::params::trgsw;
 use super::util::params::trlwe::Ring;
+use super::util::params::{trgsw, Torus};
 
 const N: usize = trgsw::N;
 const L: usize = trgsw::L;
@@ -45,12 +45,12 @@ impl TRGSW {
     fn _coefficient_matrix(&self, mu: [i8; N]) -> TRGSWMatrix {
         let mut matrix: TRGSWMatrix = [[[0; N]; 2]; 2 * L];
         let zero_ring = [0; N];
-        for l in 0..L {
-            let w = BG.pow((L - l) as u32 - 1);
-            matrix[l][0] = intpoly_mul_as_torus(mu, w);
-            matrix[l][1] = zero_ring;
-            matrix[l + L][0] = zero_ring;
-            matrix[l + L][1] = intpoly_mul_as_torus(mu, w);
+        for i in 0..L {
+            let w = 2u32.pow(32 - (i as u32 + 1) * (BGBIT as u32));
+            matrix[i][0] = intpoly_mul_as_torus(mu, w);
+            matrix[i][1] = zero_ring;
+            matrix[i + L][0] = zero_ring;
+            matrix[i + L][1] = intpoly_mul_as_torus(mu, w);
         }
         matrix
     }
@@ -129,7 +129,7 @@ pub fn external_product((a_bar, b_bar): Decomposition, matrix: TRGSWMatrix) -> (
     (a, b)
 }
 
-fn _extract_const_array_from_trgsw_matrix(matrix: TRGSWMatrix, k: usize) -> [[u32; 2]; 2 * L] {
+fn _extract_const_array_from_trgsw_matrix(matrix: TRGSWMatrix, k: usize) -> [[Torus; 2]; 2 * L] {
     // assert
     assert!(k <= N - 1, "ArrayIndexOutOfBoundsException");
 
@@ -159,8 +159,10 @@ fn _const_external_product((a_bar, b_bar): Decomposition, m: [[u32; 2]; 2 * L]) 
                     .wrapping_add(m[i + L][1].wrapping_mul(b_bar[i][j] as u32)),
             );
         }
-        a_[j] = sa << (32 - LBG);
-        b_[j] = sb << (32 - LBG);
+        a_[j] = sa;
+        b_[j] = sb;
+        // a_[j] = sa << (32 - LBG);
+        // b_[j] = sb << (32 - LBG);
     }
     (a_, b_)
 }
@@ -207,22 +209,32 @@ fn test_decomposition() {
     let a_bar = _decomposition(a);
     let b_bar = _decomposition(b);
 
-    // (4) reconstruct a and b by decomposition
+    // (4) reconstruct a and b from decomposition
     let mut a_: Ring = [0; N];
     let mut b_: Ring = [0; N];
     for j in 0..N {
         let mut sa: u32 = 0;
         let mut sb: u32 = 0;
+        // for i in 0..L {
+        //     sa = sa.wrapping_add(
+        //         (a_bar[i][j] as u32).wrapping_mul((BG as u32).pow((L - i) as u32 - 1)),
+        //     );
+        //     sb = sb.wrapping_add(
+        //         (b_bar[i][j] as u32).wrapping_mul((BG as u32).pow((L - i) as u32 - 1)),
+        //     );
+        // }
         for i in 0..L {
             sa = sa.wrapping_add(
-                (a_bar[i][j] as u32).wrapping_mul((BG as u32).pow((L - i) as u32 - 1)),
+                (a_bar[i][j] as u32).wrapping_mul(2u32.pow(32 - (i as u32 + 1) * (BGBIT as u32))),
             );
             sb = sb.wrapping_add(
-                (b_bar[i][j] as u32).wrapping_mul((BG as u32).pow((L - i) as u32 - 1)),
+                (b_bar[i][j] as u32).wrapping_mul(2u32.pow(32 - (i as u32 + 1) * (BGBIT as u32))),
             );
         }
-        a_[j] = sa << (32 - LBG);
-        b_[j] = sb << (32 - LBG);
+        a_[j] = sa;
+        b_[j] = sb;
+        // a_[j] = sa << (32 - LBG);
+        // b_[j] = sb << (32 - LBG);
     }
 
     // (5) decrypt by TRLWE, and assertion!
@@ -247,8 +259,9 @@ fn test_decomposition_2() {
     // (4) reconstruct a and b by decomposition
     let mut matrix: [[u32; 2]; 2 * L] = [[0; 2]; 2 * L];
     for i in 0..L {
-        matrix[i][0] = BG.pow((L - i) as u32 - 1);
-        matrix[i + L][1] = BG.pow((L - i) as u32 - 1);
+        let exp = 32 - (i as u32 + 1) * (BGBIT as u32);
+        matrix[i][0] = 2u32.pow(exp);
+        matrix[i + L][1] = 2u32.pow(exp);
     }
     let (a_, b_) = _const_external_product((a_bar, b_bar), matrix);
 
@@ -277,6 +290,32 @@ fn test_zero_matrix() {
         assert_eq!(bs, dec_bs);
     }
 }
+
+// #[test]
+// fn test_zero_matrix_2() {
+//     use super::trlwe::TRLWE;
+//     use super::util::ops::vsub;
+//     use super::util::params::trlwe::{BRing, ALPHA};
+//     use super::util::sampling::random_bool_initialization;
+
+//     let bs: BRing = random_bool_initialization();
+//     let trlwe = TRLWE::new();
+//     let (a, b) = trlwe.encrypt(bs);
+//     let decomp = decomposition(a, b);
+
+//     let trgsw = TRGSW::new(trlwe.get_secret());
+//     let matrix = trgsw.zero_matrix();
+
+//     let (a_, b_) = external_product(decomp, matrix);
+//     let ring = trlwe.decrypt_torus(a_, b_);
+//     let offset = [2u32.pow(28); N];
+//     let m = vsub(&ring, &offset);
+//     let mut counter = 0;
+//     for i in 0..N {
+//         counter += (m[i] > 2u32.pow(31)) as usize;
+//     }
+//     assert!(counter == 0, "counter is {}", counter);
+// }
 
 #[test]
 fn test_external_product() {
