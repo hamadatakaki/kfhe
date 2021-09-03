@@ -36,34 +36,30 @@ impl TRLWE {
         self.encrypt_torus(m)
     }
 
-    pub fn decrypt(&self, a: Ring, b: Ring) -> BRing {
-        // let offset = [2u32.pow(28); N];
-        // let m = vsub(&self.decrypt_torus(a, b), &offset);
-        let m = self.decrypt_torus(a, b);
+    pub fn decrypt_torus(&self, a: Ring, b: Ring) -> Ring {
+        vsub(&b, &pmul(&a, &self.get_secret()))
+    }
 
+    pub fn decrypt(&self, a: Ring, b: Ring) -> BRing {
+        let m = self.decrypt_torus(a, b);
         let mut bs = [false; N];
         for i in 0..N {
             bs[i] = m[i] <= 2u32.pow(31);
         }
         bs
     }
-
-    pub fn decrypt_torus(&self, a: Ring, b: Ring) -> Ring {
-        vsub(&b, &pmul(&a, &self.get_secret()))
-    }
 }
 
 pub fn sample_extract_index(a: Ring, b: Ring, k: usize) -> (Ring, Torus) {
-    let n = N;
-    if k > n - 1 {
+    if k > N - 1 {
         panic!("ArrayIndexOutOfBoundsException")
     }
     let mut ext_a = [0; N];
-    for i in 0..n {
+    for i in 0..N {
         if i <= k {
             ext_a[i] = a[k - i];
         } else {
-            ext_a[i] = 0u32.wrapping_sub(a[n + k - i]);
+            ext_a[i] = 0u32.wrapping_sub(a[N + k - i]);
         }
     }
     (ext_a, b[k])

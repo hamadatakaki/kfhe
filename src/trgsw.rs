@@ -1,7 +1,7 @@
 use super::trlwe::TRLWE;
-use super::util::ops::{intpoly_mul_as_torus, pmul, rmadd, vadd, vsub};
-use super::util::params::trgsw;
+use super::util::ops::{pmul, rmadd, vadd, vsub};
 use super::util::params::trlwe::Ring;
+use super::util::params::{trgsw, Torus};
 use super::util::{float_to_torus, zpoly_to_ring};
 
 const N: usize = trgsw::N;
@@ -14,6 +14,20 @@ type Z = trgsw::Z;
 type Zpoly = trgsw::Zpoly;
 type Decomposition = ([Zpoly; L], [Zpoly; L]);
 type TRGSWMatrix = [[Ring; 2]; 2 * L];
+
+fn intpoly_mul_as_torus<const N: usize>(zs: [i8; N], t: Torus) -> [Torus; N] {
+    let mut ring = [0; N];
+    for i in 0..N {
+        let sc = zs[i];
+        let base = t.wrapping_mul(sc.abs() as Torus);
+        ring[i] = if sc < 0 {
+            0u32.wrapping_sub(base)
+        } else {
+            base
+        };
+    }
+    ring
+}
 
 pub struct TRGSW {
     s: Ring,

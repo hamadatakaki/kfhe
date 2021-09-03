@@ -3,11 +3,11 @@ use super::util::params::{tlwe, Torus};
 use super::util::sampling::{modular_normal_dist, ndim_bin_uniform, ndim_torus_uniform};
 use super::util::{bool_normalization, float_to_torus};
 
-const N: usize = tlwe::N;
+const M: usize = tlwe::N;
 
 #[derive(Clone, Debug)]
 pub struct TLWE {
-    s: [Torus; N],
+    s: [Torus; M],
 }
 
 impl TLWE {
@@ -16,18 +16,26 @@ impl TLWE {
         Self { s }
     }
 
-    pub fn encrypt(&self, msg: bool) -> ([Torus; N], Torus) {
-        let m = float_to_torus(bool_normalization(msg));
+    pub fn encrypt_torus(&self, torus: Torus) -> ([Torus; M], Torus) {
         let s = self.s.clone();
         let a = ndim_torus_uniform();
         let e = modular_normal_dist(0., tlwe::ALPHA);
-        let b = dot(&a, &s).wrapping_add(m).wrapping_add(e);
+        let b = dot(&a, &s).wrapping_add(torus).wrapping_add(e);
         (a, b)
     }
 
-    pub fn decrypt(&self, a: [Torus; N], b: Torus) -> bool {
+    pub fn encrypt(&self, msg: bool) -> ([Torus; M], Torus) {
+        let m = float_to_torus(bool_normalization(msg));
+        self.encrypt_torus(m)
+    }
+
+    pub fn decrypt_torus(&self, a: [Torus; M], b: Torus) -> Torus {
         let s = self.s.clone();
-        let m = b.wrapping_sub(dot(&a, &s)).wrapping_sub(2u32.pow(28));
+        b.wrapping_sub(dot(&a, &s))
+    }
+
+    pub fn decrypt(&self, a: [Torus; M], b: Torus) -> bool {
+        let m = self.decrypt_torus(a, b);
         m < 2u32.pow(31)
     }
 }
@@ -39,7 +47,8 @@ fn test_tlwe_enc_and_dec() {
     fn _run_tlwe(msg: bool) -> bool {
         let tlwe = TLWE::new();
         let (a, b) = tlwe.encrypt(msg);
-        tlwe.decrypt(a, b)
+        let m = tlwe.decrypt_torus(a, b);
+        m.wrapping_sub(2u32.pow(28)) < 2u32.pow(31)
     }
 
     const T: usize = 1000;
