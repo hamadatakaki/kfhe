@@ -1,15 +1,21 @@
 use super::key::SecretKey;
-use super::ops::{dot, vadd};
+use super::ops::{dot, vadd, vsub};
 use super::params::tlwe;
 use super::sampling::{modular_normal_dist, ndim_torus_uniform};
-use super::util::{bool_normalization, float_to_torus, RingLv0, Torus};
+use super::util::{bool_normalization, float_to_torus, RingLv0, RingLv1, Torus};
 
 #[derive(Clone, Copy, Debug)]
-pub struct CipherTLWELv0(RingLv0, Torus);
+pub struct CipherTLWELv0(pub RingLv0, pub Torus);
 
 impl CipherTLWELv0 {
     pub fn describe(self) -> (RingLv0, Torus) {
         (self.0, self.1)
+    }
+
+    pub fn clearly_true() -> Self {
+        let a = [0; tlwe::N];
+        let b = float_to_torus(0.125);
+        Self(a, b)
     }
 }
 
@@ -21,6 +27,26 @@ impl std::ops::Add for CipherTLWELv0 {
         let a = vadd(a0, a1);
         let b = b0.wrapping_add(b1);
         CipherTLWELv0(a, b)
+    }
+}
+
+impl std::ops::Sub for CipherTLWELv0 {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self {
+        let (a0, b0) = self.describe();
+        let (a1, b1) = rhs.describe();
+        let a = vsub(a0, a1);
+        let b = b0.wrapping_sub(b1);
+        CipherTLWELv0(a, b)
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct CipherTLWELv1(pub RingLv1, pub Torus);
+
+impl CipherTLWELv1 {
+    pub fn describe(self) -> (RingLv1, Torus) {
+        (self.0, self.1)
     }
 }
 

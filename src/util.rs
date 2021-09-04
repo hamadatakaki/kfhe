@@ -53,15 +53,18 @@ pub fn zpoly_to_ring<const N: usize>(zp: [i8; N]) -> [Torus; N] {
 }
 
 pub fn rotate_ring<const N: usize>(ring: [Torus; N], k: usize) -> [Torus; N] {
-    let mut r = [0; N];
+    assert!(k < 2 * N);
+    let mut ret = [0; N];
     for i in 0..N {
-        r[i] = if i + k < N {
-            ring[i + k]
+        let q = (i + k) / N;
+        let r = (i + k) % N;
+        ret[i] = if q % 2 == 0 {
+            ring[r]
         } else {
-            0u32.wrapping_sub(ring[N - k + i])
-        };
+            0u32.wrapping_sub(ring[r])
+        }
     }
-    r
+    ret
 }
 
 #[test]

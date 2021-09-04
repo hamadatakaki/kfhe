@@ -1,8 +1,8 @@
 use super::key::SecretKey;
 use super::ops::{pmul, rmadd, vadd};
 use super::params::{tlwe, trgsw};
-use super::tlwe::CipherTLWELv0;
-use super::trlwe::{CipherTRLWE, TRLWE};
+use super::tlwe::{CipherTLWELv0, CipherTLWELv1};
+use super::trlwe::{sample_extract_index, CipherTRLWE, TRLWE};
 use super::util::{float_to_torus, rotate_ring, zpoly_to_ring, RingLv1, Torus};
 
 const N: usize = trgsw::N;
@@ -12,11 +12,28 @@ const BGBIT: u32 = trgsw::BGBIT;
 const LBG: u32 = L as u32 * BGBIT;
 const NBIT: usize = trgsw::NBIT;
 
-type Z = i8;
+pub type Z = i8;
+pub type TRGSWMatrix = [[RingLv1; 2]; 2 * L];
+
 type ZRing = [Z; N];
 type Decomposition = ([ZRing; L], [ZRing; L]);
-type TRGSWMatrix = [[RingLv1; 2]; 2 * L];
-type BootstrappingKey = [TRGSWMatrix; tlwe::N];
+
+#[derive(Clone, Debug)]
+pub struct BootstrappingKey(pub Vec<TRGSWMatrix>);
+
+impl BootstrappingKey {
+    pub fn get(&self, k: usize) -> TRGSWMatrix {
+        self.0[k]
+    }
+
+    pub fn set(&mut self, k: usize, val: TRGSWMatrix) {
+        self.0[k] = val;
+    }
+}
+
+pub fn uninitialized_trgsw_matrix() -> TRGSWMatrix {
+    [[[0; N]; 2]; 2 * L]
+}
 
 fn intpoly_mul_as_torus<const N: usize>(zs: [i8; N], t: Torus) -> [Torus; N] {
     let mut ring = [0; N];
@@ -86,6 +103,17 @@ impl TRGSW {
     pub fn cmux(&self, flag: bool, c0: CipherTRLWE, c1: CipherTRLWE) -> CipherTRLWE {
         let matrix = self.coefficient(flag as i8);
         cmux(matrix, c0, c1)
+    }
+
+    pub fn bootstrapping_key(&self) -> BootstrappingKey {
+        let n = tlwe::N;
+        let lv0 = self.sk.lv0;
+        let mut bk = BootstrappingKey(vec![[[[0; N]; 2]; 2 * L]; tlwe::N]);
+
+        for j in 0..n {
+            bk.set(j, self.coefficient(lv0[j] as i8));
+        }
+        bk
     }
 }
 
@@ -159,13 +187,20 @@ pub fn blind_rotate(c0: CipherTLWELv0, bk: BootstrappingKey, c1: CipherTRLWE) ->
     let b_floor = (b0 >> (31 - NBIT)) as usize;
     let offset = 2u32.pow(30 - NBIT as u32);
 
-    let mut c_ret = rotate_trlwe_cipher(c1, 64 - b_floor);
+    let mut c_ret = rotate_trlwe_cipher(c1, 2 * N - b_floor);
     for j in 0..tlwe::N {
         let a_floor = ((a0[j] + offset) >> (31 - NBIT)) as usize;
         let c_ret_rot = rotate_trlwe_cipher(c_ret, a_floor);
-        c_ret = cmux(bk[j], c_ret_rot, c_ret);
+        c_ret = cmux(bk.get(j), c_ret_rot, c_ret);
     }
     c_ret
+}
+
+pub fn gate_bootstrapping(c0: CipherTLWELv0, sk: SecretKey) -> CipherTLWELv1 {
+    let tv = TRLWE::new(sk).test_vector();
+    let bk = TRGSW::new(sk).bootstrapping_key();
+    let c = blind_rotate(c0, bk, tv);
+    sample_extract_index(c, 0)
 }
 
 #[test]
@@ -313,4 +348,29 @@ fn test_cmux() {
         counter1,
         counter2
     );
+}
+
+#[test]
+fn test_gate_bootstrapping() {
+    use super::ops::dot;
+    use super::tlwe::TLWE;
+
+    fn decrypt_as_tlwe_lv1(ext_a: RingLv1, ext_b: Torus, s: RingLv1) -> bool {
+        let m = ext_b.wrapping_sub(dot(ext_a, s)).wrapping_sub(2u32.pow(28));
+        m < 2u32.pow(31)
+    }
+
+    const LOOP: usize = 2;
+    let bs: [bool; LOOP] = [true, false];
+
+    for i in 0..LOOP {
+        let pt = bs[i];
+        let sk = SecretKey::new();
+        let tlwe = TLWE::new(sk);
+        let c = tlwe.encrypt(pt);
+        let (a_, b_) = gate_bootstrapping(c, sk).describe();
+        let msg = decrypt_as_tlwe_lv1(a_, b_, sk.lv1);
+
+        assert_eq!(pt, !msg);
+    }
 }

@@ -2,7 +2,8 @@ use super::key::SecretKey;
 use super::ops::{pmul, vadd, vsub};
 use super::params::trlwe;
 use super::sampling::{ndim_modular_normal_dist, ndim_torus_uniform};
-use super::util::{boolpoly_normalization, fring_to_torus_ring, RingLv1, Torus};
+use super::tlwe::CipherTLWELv1;
+use super::util::{boolpoly_normalization, fring_to_torus_ring, RingLv1};
 
 const N: usize = trlwe::N;
 
@@ -79,9 +80,13 @@ impl TRLWE {
         }
         bs
     }
+
+    pub fn test_vector(&self) -> CipherTRLWE {
+        self.encrypt([true; trlwe::N])
+    }
 }
 
-pub fn sample_extract_index(c: CipherTRLWE, k: usize) -> (RingLv1, Torus) {
+pub fn sample_extract_index(c: CipherTRLWE, k: usize) -> CipherTLWELv1 {
     if k > N - 1 {
         panic!("ArrayIndexOutOfBoundsException")
     }
@@ -95,7 +100,7 @@ pub fn sample_extract_index(c: CipherTRLWE, k: usize) -> (RingLv1, Torus) {
             ext_a[i] = 0u32.wrapping_sub(a[N + k - i]);
         }
     }
-    (ext_a, b[k])
+    CipherTLWELv1(ext_a, b[k])
 }
 
 #[test]
@@ -117,6 +122,7 @@ fn test_trlwe_enc_and_dec() {
 fn test_sample_extract_index() {
     use super::ops::dot;
     use super::sampling::random_bool_initialization;
+    use super::util::Torus;
 
     use rand;
     use rand_distr::{Distribution, Uniform};
@@ -152,7 +158,7 @@ fn test_sample_extract_index() {
         let c = trlwe.encrypt(bs);
 
         // Sample Extract Index
-        let (ext_a, ext_b) = sample_extract_index(c, index);
+        let (ext_a, ext_b) = sample_extract_index(c, index).describe();
 
         let msg = decrypt_as_tlwe_lv1(ext_a, ext_b, trlwe.s);
         assert_eq!(bs[index], msg);
