@@ -1,4 +1,4 @@
-use super::util::sampling::ndim_bin_uniform;
+use super::sampling::ndim_bin_uniform;
 use super::util::{RingLv0, RingLv1};
 
 #[derive(Clone, Copy, Debug)]

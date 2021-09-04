@@ -1,7 +1,7 @@
 use super::key::SecretKey;
-use super::util::ops::{dot, vadd};
-use super::util::params::tlwe;
-use super::util::sampling::{modular_normal_dist, ndim_torus_uniform};
+use super::ops::{dot, vadd};
+use super::params::tlwe;
+use super::sampling::{modular_normal_dist, ndim_torus_uniform};
 use super::util::{bool_normalization, float_to_torus, RingLv0, Torus};
 
 #[derive(Clone, Copy, Debug)]
@@ -61,7 +61,7 @@ impl TLWE {
 
 #[test]
 fn test_tlwe_enc_and_dec() {
-    use super::util::sampling::random_bool_initialization;
+    use super::sampling::random_bool_initialization;
 
     fn _run_tlwe(sk: SecretKey, msg: bool) -> bool {
         let tlwe = TLWE::new(sk);

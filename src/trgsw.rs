@@ -1,8 +1,8 @@
 use super::key::SecretKey;
+use super::ops::{pmul, rmadd, vadd};
+use super::params::{tlwe, trgsw};
 use super::tlwe::CipherTLWELv0;
 use super::trlwe::{CipherTRLWE, TRLWE};
-use super::util::ops::{pmul, rmadd, vadd};
-use super::util::params::{tlwe, trgsw};
 use super::util::{float_to_torus, rotate_ring, zpoly_to_ring, RingLv1, Torus};
 
 const N: usize = trgsw::N;
@@ -170,8 +170,8 @@ pub fn blind_rotate(c0: CipherTLWELv0, bk: BootstrappingKey, c1: CipherTRLWE) ->
 
 #[test]
 fn test_decomposition() {
+    use super::sampling::random_bool_initialization;
     use super::trlwe::TRLWE;
-    use super::util::sampling::random_bool_initialization;
 
     // (1) random BRing, (2) encrypt by TRLWE
     let sk = SecretKey::new();
@@ -204,8 +204,8 @@ fn test_decomposition() {
 
 #[test]
 fn test_zero_matrix_add() {
+    use super::sampling::random_bool_initialization;
     use super::trlwe::TRLWE;
-    use super::util::sampling::random_bool_initialization;
 
     let sk = SecretKey::new();
     let trlwe = TRLWE::new(sk);
@@ -224,9 +224,9 @@ fn test_zero_matrix_add() {
 
 #[test]
 fn test_zero_matrix_multiple() {
+    use super::ops::vsub;
+    use super::sampling::random_bool_initialization;
     use super::trlwe::TRLWE;
-    use super::util::ops::vsub;
-    use super::util::sampling::random_bool_initialization;
 
     let sk = SecretKey::new();
 
@@ -255,8 +255,8 @@ fn test_zero_matrix_multiple() {
 
 #[test]
 fn test_external_product() {
+    use super::sampling::random_bool_initialization;
     use super::trlwe::TRLWE;
-    use super::util::sampling::random_bool_initialization;
 
     let sk = SecretKey::new();
 
@@ -281,8 +281,8 @@ fn test_external_product() {
 
 #[test]
 fn test_cmux() {
+    use super::sampling::random_bool_initialization;
     use super::trlwe::TRLWE;
-    use super::util::sampling::random_bool_initialization;
 
     let sk = SecretKey::new();
     let trlwe = TRLWE::new(sk);

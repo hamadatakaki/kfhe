@@ -1,6 +1,4 @@
-pub mod ops;
-pub mod params;
-pub mod sampling;
+use super::params;
 
 pub type Torus = u32;
 pub type RingLv0 = [Torus; params::tlwe::N];

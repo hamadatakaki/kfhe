@@ -1,7 +1,7 @@
 use super::key::SecretKey;
-use super::util::ops::{pmul, vadd, vsub};
-use super::util::params::trlwe;
-use super::util::sampling::{ndim_modular_normal_dist, ndim_torus_uniform};
+use super::ops::{pmul, vadd, vsub};
+use super::params::trlwe;
+use super::sampling::{ndim_modular_normal_dist, ndim_torus_uniform};
 use super::util::{boolpoly_normalization, fring_to_torus_ring, RingLv1, Torus};
 
 const N: usize = trlwe::N;
@@ -100,7 +100,7 @@ pub fn sample_extract_index(c: CipherTRLWE, k: usize) -> (RingLv1, Torus) {
 
 #[test]
 fn test_trlwe_enc_and_dec() {
-    use super::util::sampling::random_bool_initialization;
+    use super::sampling::random_bool_initialization;
 
     fn _run_trlwe(bs: BRing) -> BRing {
         let sk = SecretKey::new();
@@ -115,8 +115,8 @@ fn test_trlwe_enc_and_dec() {
 
 #[test]
 fn test_sample_extract_index() {
-    use super::util::ops::dot;
-    use super::util::sampling::random_bool_initialization;
+    use super::ops::dot;
+    use super::sampling::random_bool_initialization;
 
     use rand;
     use rand_distr::{Distribution, Uniform};
