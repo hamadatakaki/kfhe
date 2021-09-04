@@ -350,27 +350,29 @@ fn test_cmux() {
     );
 }
 
-#[test]
-fn test_gate_bootstrapping() {
-    use super::ops::dot;
-    use super::tlwe::TLWE;
+// FFTじゃないと重すぎて時間がかかるのでやめとく（通ることは確認済み）
 
-    fn decrypt_as_tlwe_lv1(ext_a: RingLv1, ext_b: Torus, s: RingLv1) -> bool {
-        let m = ext_b.wrapping_sub(dot(ext_a, s)).wrapping_sub(2u32.pow(28));
-        m < 2u32.pow(31)
-    }
+// #[test]
+// fn test_gate_bootstrapping() {
+//     use super::ops::dot;
+//     use super::tlwe::TLWE;
 
-    const LOOP: usize = 2;
-    let bs: [bool; LOOP] = [true, false];
+//     fn decrypt_as_tlwe_lv1(ext_a: RingLv1, ext_b: Torus, s: RingLv1) -> bool {
+//         let m = ext_b.wrapping_sub(dot(ext_a, s)).wrapping_sub(2u32.pow(28));
+//         m < 2u32.pow(31)
+//     }
 
-    for i in 0..LOOP {
-        let pt = bs[i];
-        let sk = SecretKey::new();
-        let tlwe = TLWE::new(sk);
-        let c = tlwe.encrypt(pt);
-        let (a_, b_) = gate_bootstrapping(c, sk).describe();
-        let msg = decrypt_as_tlwe_lv1(a_, b_, sk.lv1);
+//     const LOOP: usize = 2;
+//     let bs: [bool; LOOP] = [true, false];
 
-        assert_eq!(pt, !msg);
-    }
-}
+//     for i in 0..LOOP {
+//         let pt = bs[i];
+//         let sk = SecretKey::new();
+//         let tlwe = TLWE::new(sk);
+//         let c = tlwe.encrypt(pt);
+//         let (a_, b_) = gate_bootstrapping(c, sk).describe();
+//         let msg = decrypt_as_tlwe_lv1(a_, b_, sk.lv1);
+
+//         assert_eq!(pt, !msg);
+//     }
+// }
