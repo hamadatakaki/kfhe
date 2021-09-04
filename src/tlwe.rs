@@ -1,14 +1,12 @@
 use super::util::ops::dot;
 use super::util::params::tlwe;
 use super::util::sampling::{modular_normal_dist, ndim_bin_uniform, ndim_torus_uniform};
-use super::util::Torus;
 use super::util::{bool_normalization, float_to_torus};
-
-const M: usize = tlwe::N;
+use super::util::{RingLv0, Torus};
 
 #[derive(Clone, Debug)]
 pub struct TLWE {
-    s: [Torus; M],
+    s: RingLv0,
 }
 
 impl TLWE {
@@ -17,7 +15,7 @@ impl TLWE {
         Self { s }
     }
 
-    pub fn encrypt_torus(&self, torus: Torus) -> ([Torus; M], Torus) {
+    pub fn encrypt_torus(&self, torus: Torus) -> (RingLv0, Torus) {
         let s = self.s.clone();
         let a = ndim_torus_uniform();
         let e = modular_normal_dist(0., tlwe::ALPHA);
@@ -25,17 +23,17 @@ impl TLWE {
         (a, b)
     }
 
-    pub fn encrypt(&self, msg: bool) -> ([Torus; M], Torus) {
+    pub fn encrypt(&self, msg: bool) -> (RingLv0, Torus) {
         let m = float_to_torus(bool_normalization(msg));
         self.encrypt_torus(m)
     }
 
-    pub fn decrypt_torus(&self, a: [Torus; M], b: Torus) -> Torus {
+    pub fn decrypt_torus(&self, a: RingLv0, b: Torus) -> Torus {
         let s = self.s.clone();
         b.wrapping_sub(dot(&a, &s))
     }
 
-    pub fn decrypt(&self, a: [Torus; M], b: Torus) -> bool {
+    pub fn decrypt(&self, a: RingLv0, b: Torus) -> bool {
         let m = self.decrypt_torus(a, b);
         m < 2u32.pow(31)
     }
