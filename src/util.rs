@@ -54,6 +54,18 @@ pub fn zpoly_to_ring<const N: usize>(zp: [i8; N]) -> [Torus; N] {
     r
 }
 
+pub fn rotate_ring<const N: usize>(ring: [Torus; N], k: usize) -> [Torus; N] {
+    let mut r = [0; N];
+    for i in 0..N {
+        r[i] = if i + k < N {
+            ring[i + k]
+        } else {
+            0u32.wrapping_sub(ring[N - k + i])
+        };
+    }
+    r
+}
+
 #[test]
 fn test_float_to_torus() {
     assert_eq!(float_to_torus(0.), 0);

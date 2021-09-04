@@ -1,18 +1,20 @@
 use super::trlwe::TRLWE;
 use super::util::ops::{pmul, rmadd, vadd, vsub};
-use super::util::params::{trgsw, trlwe};
-use super::util::{float_to_torus, zpoly_to_ring, RingLv1, Torus};
+use super::util::params::{tlwe, trgsw};
+use super::util::{float_to_torus, rotate_ring, zpoly_to_ring, RingLv0, RingLv1, Torus};
 
-const N: usize = trlwe::N;
+const N: usize = trgsw::N;
 const L: usize = trgsw::L;
 const BG: u32 = trgsw::BG;
 const BGBIT: u32 = trgsw::BGBIT;
 const LBG: u32 = L as u32 * BGBIT;
+const NBIT: usize = trgsw::NBIT;
 
 type Z = i8;
 type ZRing = [Z; N];
 type Decomposition = ([ZRing; L], [ZRing; L]);
 type TRGSWMatrix = [[RingLv1; 2]; 2 * L];
+type BootstrappingKey = [TRGSWMatrix; tlwe::N];
 
 fn intpoly_mul_as_torus<const N: usize>(zs: [i8; N], t: Torus) -> [Torus; N] {
     let mut ring = [0; N];
@@ -76,17 +78,12 @@ impl TRGSW {
 
     pub fn cmux(
         &self,
-        (a0, b0): (RingLv1, RingLv1),
-        (a1, b1): (RingLv1, RingLv1),
+        c0: (RingLv1, RingLv1),
+        c1: (RingLv1, RingLv1),
         flag: bool,
     ) -> (RingLv1, RingLv1) {
-        let a_true = vsub(&a1, &a0);
-        let b_true = vsub(&b1, &b0);
         let matrix = self.coefficient(flag as i8);
-        let (enc_a, enc_b) = external_product(a_true, b_true, matrix);
-        let a_ret = vadd(&enc_a, &a0);
-        let b_ret = vadd(&enc_b, &b0);
-        (a_ret, b_ret)
+        cmux(matrix, c0, c1)
     }
 }
 
@@ -119,6 +116,19 @@ fn _decomposition(poly: RingLv1) -> [ZRing; L] {
     decomped
 }
 
+pub fn cmux(
+    matrix: TRGSWMatrix,
+    (a0, b0): (RingLv1, RingLv1),
+    (a1, b1): (RingLv1, RingLv1),
+) -> (RingLv1, RingLv1) {
+    let a_true = vsub(&a1, &a0);
+    let b_true = vsub(&b1, &b0);
+    let (enc_a, enc_b) = external_product(a_true, b_true, matrix);
+    let a_ret = vadd(&enc_a, &a0);
+    let b_ret = vadd(&enc_b, &b0);
+    (a_ret, b_ret)
+}
+
 pub fn decomposition(a: RingLv1, b: RingLv1) -> Decomposition {
     let a_decomp = _decomposition(a);
     let b_decomp = _decomposition(b);
@@ -142,7 +152,28 @@ pub fn _external_product((a_bar, b_bar): Decomposition, matrix: TRGSWMatrix) -> 
     (a_, b_)
 }
 
-// pub fn blind_state()
+pub fn blind_rotate(
+    (a0, b0): (RingLv0, Torus),
+    bk: BootstrappingKey,
+    (a1, b1): (RingLv1, RingLv1),
+) -> (RingLv1, RingLv1) {
+    let b_floor = (b0 >> (31 - NBIT)) as usize;
+    let offset = 2u32.pow(30 - NBIT as u32);
+
+    let mut a_ret = rotate_ring(a1, 64 - b_floor);
+    let mut b_ret = rotate_ring(b1, 64 - b_floor);
+
+    for j in 0..tlwe::N {
+        let a_floor = ((a0[j] + offset) >> (31 - NBIT)) as usize;
+        let a_ret_rot = rotate_ring(a_ret, a_floor);
+        let b_ret_rot = rotate_ring(b_ret, a_floor);
+        let cmuxed = cmux(bk[j], (a_ret_rot, b_ret_rot), (a_ret, b_ret));
+        a_ret = cmuxed.0;
+        b_ret = cmuxed.1;
+    }
+
+    (a_ret, b_ret)
+}
 
 #[test]
 fn test_decomposition() {
