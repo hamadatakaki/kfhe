@@ -1,6 +1,7 @@
 use super::util::ops::dot;
-use super::util::params::{tlwe, Torus};
+use super::util::params::tlwe;
 use super::util::sampling::{modular_normal_dist, ndim_bin_uniform, ndim_torus_uniform};
+use super::util::Torus;
 use super::util::{bool_normalization, float_to_torus};
 
 const M: usize = tlwe::N;

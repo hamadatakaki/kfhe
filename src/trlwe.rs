@@ -1,12 +1,14 @@
 use super::util::ops::{pmul, vadd, vsub};
-use super::util::params::trlwe::{self, BRing, Ring, Torus};
+use super::util::params::trlwe;
 use super::util::sampling::{ndim_bin_uniform, ndim_modular_normal_dist, ndim_torus_uniform};
-use super::util::{boolpoly_normalization, fring_to_torus_ring};
+use super::util::{boolpoly_normalization, fring_to_torus_ring, RingLv1, Torus};
 
 const N: usize = trlwe::N;
 
+type BRing = [bool; N];
+
 pub struct TRLWE {
-    s: Ring,
+    s: RingLv1,
 }
 
 impl TRLWE {
@@ -15,32 +17,32 @@ impl TRLWE {
         Self::from_secret(s)
     }
 
-    pub fn from_secret(s: Ring) -> Self {
+    pub fn from_secret(s: RingLv1) -> Self {
         Self { s }
     }
 
-    pub fn get_secret(&self) -> Ring {
+    pub fn get_secret(&self) -> RingLv1 {
         self.s.clone()
     }
 
-    pub fn encrypt_torus(&self, msg: Ring) -> (Ring, Ring) {
+    pub fn encrypt_torus(&self, msg: RingLv1) -> (RingLv1, RingLv1) {
         let s = self.s.clone();
-        let a: Ring = ndim_torus_uniform();
-        let e: Ring = ndim_modular_normal_dist(0., trlwe::ALPHA);
+        let a: RingLv1 = ndim_torus_uniform();
+        let e: RingLv1 = ndim_modular_normal_dist(0., trlwe::ALPHA);
         let b = vadd(&vadd(&pmul(&a, &s), &msg), &e);
         (a, b)
     }
 
-    pub fn encrypt(&self, msg: BRing) -> (Ring, Ring) {
+    pub fn encrypt(&self, msg: BRing) -> (RingLv1, RingLv1) {
         let m = fring_to_torus_ring(boolpoly_normalization(msg));
         self.encrypt_torus(m)
     }
 
-    pub fn decrypt_torus(&self, a: Ring, b: Ring) -> Ring {
+    pub fn decrypt_torus(&self, a: RingLv1, b: RingLv1) -> RingLv1 {
         vsub(&b, &pmul(&a, &self.get_secret()))
     }
 
-    pub fn decrypt(&self, a: Ring, b: Ring) -> BRing {
+    pub fn decrypt(&self, a: RingLv1, b: RingLv1) -> BRing {
         let m = self.decrypt_torus(a, b);
         let mut bs = [false; N];
         for i in 0..N {
@@ -50,7 +52,7 @@ impl TRLWE {
     }
 }
 
-pub fn sample_extract_index(a: Ring, b: Ring, k: usize) -> (Ring, Torus) {
+pub fn sample_extract_index(a: RingLv1, b: RingLv1, k: usize) -> (RingLv1, Torus) {
     if k > N - 1 {
         panic!("ArrayIndexOutOfBoundsException")
     }
@@ -87,7 +89,7 @@ fn test_sample_extract_index() {
     use rand;
     use rand_distr::{Distribution, Uniform};
 
-    fn decrypt_as_tlwe(ext_a: Ring, ext_b: Torus, s: Ring) -> bool {
+    fn decrypt_as_tlwe(ext_a: RingLv1, ext_b: Torus, s: RingLv1) -> bool {
         let m = ext_b
             .wrapping_sub(dot(&ext_a, &s))
             .wrapping_sub(2u32.pow(28));

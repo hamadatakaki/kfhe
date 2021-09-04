@@ -1,5 +1,5 @@
 use super::float_to_torus;
-use super::params::Torus;
+use super::Torus;
 
 use rand_distr::{Distribution, Normal, Uniform};
 

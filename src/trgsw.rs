@@ -1,19 +1,18 @@
 use super::trlwe::TRLWE;
 use super::util::ops::{pmul, rmadd, vadd, vsub};
-use super::util::params::trlwe::Ring;
-use super::util::params::{trgsw, Torus};
-use super::util::{float_to_torus, zpoly_to_ring};
+use super::util::params::{trgsw, trlwe};
+use super::util::{float_to_torus, zpoly_to_ring, RingLv1, Torus};
 
-const N: usize = trgsw::N;
+const N: usize = trlwe::N;
 const L: usize = trgsw::L;
 const BG: u32 = trgsw::BG;
 const BGBIT: u32 = trgsw::BGBIT;
 const LBG: u32 = L as u32 * BGBIT;
 
-type Z = trgsw::Z;
-type Zpoly = trgsw::Zpoly;
-type Decomposition = ([Zpoly; L], [Zpoly; L]);
-type TRGSWMatrix = [[Ring; 2]; 2 * L];
+type Z = i8;
+type ZRing = [Z; N];
+type Decomposition = ([ZRing; L], [ZRing; L]);
+type TRGSWMatrix = [[RingLv1; 2]; 2 * L];
 
 fn intpoly_mul_as_torus<const N: usize>(zs: [i8; N], t: Torus) -> [Torus; N] {
     let mut ring = [0; N];
@@ -30,11 +29,11 @@ fn intpoly_mul_as_torus<const N: usize>(zs: [i8; N], t: Torus) -> [Torus; N] {
 }
 
 pub struct TRGSW {
-    s: Ring,
+    s: RingLv1,
 }
 
 impl TRGSW {
-    pub fn new(s: Ring) -> Self {
+    pub fn new(s: RingLv1) -> Self {
         Self { s }
     }
 
@@ -75,7 +74,12 @@ impl TRGSW {
         self.coefficient_matrix(mu)
     }
 
-    pub fn cmux(&self, (a0, b0): (Ring, Ring), (a1, b1): (Ring, Ring), flag: bool) -> (Ring, Ring) {
+    pub fn cmux(
+        &self,
+        (a0, b0): (RingLv1, RingLv1),
+        (a1, b1): (RingLv1, RingLv1),
+        flag: bool,
+    ) -> (RingLv1, RingLv1) {
         let a_true = vsub(&a1, &a0);
         let b_true = vsub(&b1, &b0);
         let matrix = self.coefficient(flag as i8);
@@ -86,7 +90,7 @@ impl TRGSW {
     }
 }
 
-fn _decomposition(poly: Ring) -> [Zpoly; L] {
+fn _decomposition(poly: RingLv1) -> [ZRing; L] {
     let mut decomped: [[Z; N]; L] = [[0; N]; L];
     for n in 0..N {
         let mut a = poly[n] >> (32 - LBG);
@@ -115,20 +119,20 @@ fn _decomposition(poly: Ring) -> [Zpoly; L] {
     decomped
 }
 
-pub fn decomposition(a: Ring, b: Ring) -> Decomposition {
+pub fn decomposition(a: RingLv1, b: RingLv1) -> Decomposition {
     let a_decomp = _decomposition(a);
     let b_decomp = _decomposition(b);
     (a_decomp, b_decomp)
 }
 
-pub fn external_product(a: Ring, b: Ring, matrix: TRGSWMatrix) -> (Ring, Ring) {
+pub fn external_product(a: RingLv1, b: RingLv1, matrix: TRGSWMatrix) -> (RingLv1, RingLv1) {
     let decomp = decomposition(a, b);
     _external_product(decomp, matrix)
 }
 
-pub fn _external_product((a_bar, b_bar): Decomposition, matrix: TRGSWMatrix) -> (Ring, Ring) {
-    let mut a_: Ring = [0; N];
-    let mut b_: Ring = [0; N];
+pub fn _external_product((a_bar, b_bar): Decomposition, matrix: TRGSWMatrix) -> (RingLv1, RingLv1) {
+    let mut a_: RingLv1 = [0; N];
+    let mut b_: RingLv1 = [0; N];
     for i in 0..L {
         a_ = vadd(&a_, &pmul(&zpoly_to_ring(a_bar[i]), &matrix[i][0]));
         a_ = vadd(&a_, &pmul(&zpoly_to_ring(b_bar[i]), &matrix[i + L][0]));
@@ -138,14 +142,15 @@ pub fn _external_product((a_bar, b_bar): Decomposition, matrix: TRGSWMatrix) -> 
     (a_, b_)
 }
 
+// pub fn blind_state()
+
 #[test]
 fn test_decomposition() {
     use super::trlwe::TRLWE;
-    use super::util::params::trlwe::BRing;
     use super::util::sampling::random_bool_initialization;
 
     // (1) random BRing, (2) encrypt by TRLWE
-    let bs: BRing = random_bool_initialization();
+    let bs: [bool; N] = random_bool_initialization();
     let trlwe = TRLWE::new();
     let (a, b) = trlwe.encrypt(bs);
 
@@ -154,8 +159,8 @@ fn test_decomposition() {
     let b_bar = _decomposition(b);
 
     // (4) reconstruct a and b from decomposition
-    let mut a_: Ring = [0; N];
-    let mut b_: Ring = [0; N];
+    let mut a_: RingLv1 = [0; N];
+    let mut b_: RingLv1 = [0; N];
     for j in 0..N {
         let mut sa: u32 = 0;
         let mut sb: u32 = 0;
@@ -176,7 +181,6 @@ fn test_decomposition() {
 fn test_zero_matrix_add() {
     use super::trlwe::TRLWE;
     use super::util::ops::vadd;
-    use super::util::params::trlwe::BRing;
     use super::util::sampling::random_bool_initialization;
 
     let trlwe = TRLWE::new();
@@ -187,7 +191,7 @@ fn test_zero_matrix_add() {
     for i in 0..zm.len() {
         let za = zm[i][0];
         let zb = zm[i][1];
-        let bs: BRing = random_bool_initialization();
+        let bs: [bool; N] = random_bool_initialization();
         let (a, b) = trlwe.encrypt(bs);
         let dec_bs = trlwe.decrypt(vadd(&a, &za), vadd(&b, &zb));
         assert_eq!(bs, dec_bs);
@@ -198,10 +202,9 @@ fn test_zero_matrix_add() {
 fn test_zero_matrix_multiple() {
     use super::trlwe::TRLWE;
     use super::util::ops::vsub;
-    use super::util::params::trlwe::BRing;
     use super::util::sampling::random_bool_initialization;
 
-    let bs: BRing = random_bool_initialization();
+    let bs: [bool; N] = random_bool_initialization();
     let trlwe = TRLWE::new();
     let (a, b) = trlwe.encrypt(bs);
     let decomp = decomposition(a, b);
@@ -222,10 +225,9 @@ fn test_zero_matrix_multiple() {
 #[test]
 fn test_external_product() {
     use super::trlwe::TRLWE;
-    use super::util::params::trlwe::BRing;
     use super::util::sampling::random_bool_initialization;
 
-    let bs: BRing = random_bool_initialization();
+    let bs: [bool; N] = random_bool_initialization();
     let trlwe = TRLWE::new();
     let (a, b) = trlwe.encrypt(bs);
     let decomp = decomposition(a, b);
@@ -247,13 +249,12 @@ fn test_external_product() {
 #[test]
 fn test_cmux() {
     use super::trlwe::TRLWE;
-    use super::util::params::trlwe::BRing;
     use super::util::sampling::random_bool_initialization;
 
     let trlwe = TRLWE::new();
 
-    let bs1: BRing = random_bool_initialization();
-    let bs0: BRing = random_bool_initialization();
+    let bs1: [bool; N] = random_bool_initialization();
+    let bs0: [bool; N] = random_bool_initialization();
     let enc0 = trlwe.encrypt(bs0);
     let enc1 = trlwe.encrypt(bs1);
 

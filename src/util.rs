@@ -2,8 +2,9 @@ pub mod ops;
 pub mod params;
 pub mod sampling;
 
-use params::trgsw::Z;
-use params::Torus;
+pub type Torus = u32;
+pub type RingLv0 = [Torus; params::tlwe::N];
+pub type RingLv1 = [Torus; params::trlwe::N];
 
 pub fn bool_normalization(b: bool) -> f64 {
     (2. * ((b as u8) as f64) - 1.) / 8.
@@ -45,7 +46,7 @@ pub fn fring_to_torus_ring<const N: usize>(xs: [f64; N]) -> [Torus; N] {
     ring
 }
 
-pub fn zpoly_to_ring<const N: usize>(zp: [Z; N]) -> [Torus; N] {
+pub fn zpoly_to_ring<const N: usize>(zp: [i8; N]) -> [Torus; N] {
     let mut r = [0; N];
     for i in 0..N {
         r[i] = zp[i] as u32;
