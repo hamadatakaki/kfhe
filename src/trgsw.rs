@@ -110,12 +110,11 @@ impl TRGSW {
     }
 
     pub fn bootstrapping_key(&self) -> BootstrappingKey {
-        let n = tlwe::N;
         let lv0 = self.sk.lv0;
         let mut bk = BootstrappingKey(vec![[[[0; N]; 2]; 2 * L]; tlwe::N]);
 
-        for j in 0..n {
-            bk.set(j, self.coefficient(lv0[j] as i8));
+        for (j, &item) in lv0.iter().enumerate().take(tlwe::N) {
+            bk.set(j, self.coefficient(item as i8));
         }
         bk
     }
@@ -123,8 +122,8 @@ impl TRGSW {
 
 fn _decomposition(poly: RingLv1) -> [ZRing; L] {
     let mut decomped: [[Z; N]; L] = [[0; N]; L];
-    for n in 0..N {
-        let mut a = poly[n] >> (32 - LBG);
+    for (n, pn) in poly.iter().enumerate().take(N) {
+        let mut a = pn >> (32 - LBG);
         let mut cflag = false;
         for l in 0..L {
             let r = a % BG + cflag as u32;
@@ -187,8 +186,8 @@ pub fn blind_rotate(c0: CipherTLWELv0, bk: BootstrappingKey, c1: CipherTRLWE) ->
     let offset = 2u32.pow(30 - NBIT as u32);
 
     let mut c_ret = rotate_trlwe_cipher(c1, 2 * N - b_floor);
-    for j in 0..tlwe::N {
-        let a_floor = ((a0[j] + offset) >> (31 - NBIT)) as usize;
+    for (j, a0) in a0.iter().enumerate().take(tlwe::N) {
+        let a_floor = ((a0 + offset) >> (31 - NBIT)) as usize;
         let c_ret_rot = rotate_trlwe_cipher(c_ret, a_floor);
         c_ret = cmux(bk.get(j), c_ret_rot, c_ret);
     }
@@ -205,7 +204,7 @@ pub fn gate_bootstrapping(c0: CipherTLWELv0, sk: SecretKey) -> CipherTLWELv1 {
 pub fn identity_key_switching(c: CipherTLWELv1, sk: SecretKey) -> CipherTLWELv0 {
     let (a, b) = c.describe();
 
-    let s1 = sk.lv1.clone();
+    let s1 = sk.lv1;
     let tlwe = TLWE::new(sk);
     let mut ks: [[[CipherTLWELv0; K]; T]; N] = [[[CipherTLWELv0::empty(); K]; T]; N];
 
@@ -283,10 +282,10 @@ fn test_zero_matrix_add() {
 
     let zm = trgsw.zero_matrix();
 
-    for i in 0..zm.len() {
+    for zv in zm {
         let bs: [bool; N] = random_bool_initialization();
         let c = trlwe.encrypt(bs);
-        let z = CipherTRLWE(zm[i][0], zm[i][1]);
+        let z = CipherTRLWE(zv[0], zv[1]);
         let dec_bs = trlwe.decrypt(c + z);
         assert_eq!(bs, dec_bs);
     }
@@ -317,8 +316,8 @@ fn test_zero_matrix_multiple() {
 
     let m = vsub(ring, offset);
     let mut counter = 0;
-    for i in 0..N {
-        counter += (m[i] <= 2u32.pow(31)) as usize;
+    for mi in m {
+        counter += (mi <= 2u32.pow(31)) as usize;
     }
     assert!(counter == 0, "counter is {}", counter);
 }

@@ -7,10 +7,16 @@ pub struct SecretKey {
     pub lv1: RingLv1,
 }
 
-impl SecretKey {
-    pub fn new() -> Self {
+impl Default for SecretKey {
+    fn default() -> Self {
         let lv0 = ndim_bin_uniform();
         let lv1 = ndim_bin_uniform();
         Self { lv0, lv1 }
+    }
+}
+
+impl SecretKey {
+    pub fn new() -> Self {
+        Self::default()
     }
 }

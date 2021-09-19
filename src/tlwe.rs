@@ -67,10 +67,9 @@ impl TLWE {
     }
 
     pub fn encrypt_torus(&self, torus: Torus) -> CipherTLWELv0 {
-        let s = self.s.clone();
         let a = ndim_torus_uniform();
         let e = modular_normal_dist(0., tlwe::ALPHA);
-        let b = dot(a, s).wrapping_add(torus).wrapping_add(e);
+        let b = dot(a, self.s).wrapping_add(torus).wrapping_add(e);
         CipherTLWELv0(a, b)
     }
 
@@ -81,8 +80,7 @@ impl TLWE {
 
     pub fn decrypt_torus(&self, c: CipherTLWELv0) -> Torus {
         let (a, b) = c.describe();
-        let s = self.s.clone();
-        b.wrapping_sub(dot(a, s))
+        b.wrapping_sub(dot(a, self.s))
     }
 
     pub fn decrypt(&self, c: CipherTLWELv0) -> bool {
@@ -105,8 +103,7 @@ fn test_tlwe_enc_and_dec() {
     const T: usize = 1000;
     let bs: [bool; T] = random_bool_initialization();
     let sk = SecretKey::new();
-    for i in 0..T {
-        let b = bs[i];
-        assert_eq!(b, _run_tlwe(sk, b), "{}", i + 1);
+    for b in bs {
+        assert_eq!(b, _run_tlwe(sk, b));
     }
 }

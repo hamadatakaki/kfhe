@@ -51,14 +51,13 @@ impl TRLWE {
     }
 
     pub fn get_secret(&self) -> RingLv1 {
-        self.s.clone()
+        self.s
     }
 
     pub fn encrypt_torus(&self, msg: RingLv1) -> CipherTRLWE {
-        let s = self.s.clone();
         let a = ndim_torus_uniform();
         let e = ndim_modular_normal_dist(0., trlwe::ALPHA);
-        let b = vadd(vadd(pmul(a, s), msg), e);
+        let b = vadd(vadd(pmul(a, self.s), msg), e);
         CipherTRLWE(a, b)
     }
 
