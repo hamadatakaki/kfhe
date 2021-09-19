@@ -15,6 +15,9 @@ pub mod trgsw {
     pub const L: usize = 3;
     pub const NBIT: usize = 10;
 
+    pub const T: usize = 8;
+    pub const BASEBIT: u32 = 2;
+
     pub const SIGN_MIN: i8 = -((BG / 2) as i8);
     pub const SIGN_MAX: i8 = (BG / 2) as i8 - 1;
 }

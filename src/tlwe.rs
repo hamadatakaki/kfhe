@@ -12,6 +12,12 @@ impl CipherTLWELv0 {
         (self.0, self.1)
     }
 
+    pub fn empty() -> Self {
+        let a = [0; tlwe::N];
+        let b = 0;
+        Self(a, b)
+    }
+
     pub fn clearly_true() -> Self {
         let a = [0; tlwe::N];
         let b = float_to_torus(0.125);

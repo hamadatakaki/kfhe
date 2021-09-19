@@ -1,16 +1,20 @@
 use super::key::SecretKey;
 use super::ops::{pmul, rmadd, vadd};
 use super::params::{tlwe, trgsw};
-use super::tlwe::{CipherTLWELv0, CipherTLWELv1};
+use super::tlwe::{CipherTLWELv0, CipherTLWELv1, TLWE};
 use super::trlwe::{sample_extract_index, CipherTRLWE, TRLWE};
-use super::util::{float_to_torus, rotate_ring, zpoly_to_ring, RingLv1, Torus};
+use super::util::{float_to_torus, rotate_ring, zpoly_to_ring, RingLv0, RingLv1, Torus};
 
 const N: usize = trgsw::N;
 const L: usize = trgsw::L;
+const T: usize = trgsw::T;
 const BG: u32 = trgsw::BG;
 const BGBIT: u32 = trgsw::BGBIT;
 const LBG: u32 = L as u32 * BGBIT;
 const NBIT: usize = trgsw::NBIT;
+const BASEBIT: u32 = trgsw::BASEBIT;
+
+const K: usize = 2usize.pow(BASEBIT) - 1;
 
 pub type Z = i8;
 pub type TRGSWMatrix = [[RingLv1; 2]; 2 * L];
@@ -196,6 +200,42 @@ pub fn gate_bootstrapping(c0: CipherTLWELv0, sk: SecretKey) -> CipherTLWELv1 {
     let bk = TRGSW::new(sk).bootstrapping_key();
     let c = blind_rotate(c0, bk, tv);
     sample_extract_index(c, 0)
+}
+
+pub fn identity_key_switching(c: CipherTLWELv1, sk: SecretKey) -> CipherTLWELv0 {
+    let (a, b) = c.describe();
+
+    let s1 = sk.lv1.clone();
+    let tlwe = TLWE::new(sk);
+    let mut ks: [[[CipherTLWELv0; K]; T]; N] = [[[CipherTLWELv0::empty(); K]; T]; N];
+
+    for k in 0..K {
+        for j in 0..T {
+            for i in 0..N {
+                let base = (j as Torus + 1) * BASEBIT;
+                let msg = ((k as Torus + 1) * s1[i]) >> base;
+                ks[i][j][k] = tlwe.encrypt_torus(msg);
+            }
+        }
+    }
+
+    let a0: RingLv0 = [0; tlwe::N];
+    let mut c0 = CipherTLWELv0(a0, b);
+
+    let offset: Torus = 1 << (32 - (1 + BASEBIT * T as Torus));
+
+    for i in 0..N {
+        let ai_ = a[i] + offset;
+        for j in 0..T {
+            let shift = 32 - (j + 1) * BASEBIT as usize;
+            let k = (ai_ >> shift) as usize % (K + 1);
+            if k != 0 {
+                c0 = c0 - ks[i][j][k - 1];
+            }
+        }
+    }
+
+    c0
 }
 
 #[test]
