@@ -154,12 +154,7 @@ pub fn decomposition(c: CipherTRLWE) -> Decomposition {
 }
 
 pub fn external_product(matrix: TRGSWMatrix, c: CipherTRLWE) -> CipherTRLWE {
-    let decomp = decomposition(c);
-    let (a, b) = _external_product(matrix, decomp);
-    CipherTRLWE(a, b)
-}
-
-fn _external_product(matrix: TRGSWMatrix, (a_bar, b_bar): Decomposition) -> (RingLv1, RingLv1) {
+    let (a_bar, b_bar) = decomposition(c);
     let mut a_: RingLv1 = [0; N];
     let mut b_: RingLv1 = [0; N];
     for i in 0..L {
@@ -168,7 +163,7 @@ fn _external_product(matrix: TRGSWMatrix, (a_bar, b_bar): Decomposition) -> (Rin
         b_ = vadd(b_, pmul(zpoly_to_ring(a_bar[i]), matrix[i][1]));
         b_ = vadd(b_, pmul(zpoly_to_ring(b_bar[i]), matrix[i + L][1]));
     }
-    (a_, b_)
+    CipherTRLWE(a_, b_)
 }
 
 pub fn cmux(matrix: TRGSWMatrix, c0: CipherTRLWE, c1: CipherTRLWE) -> CipherTRLWE {
