@@ -89,6 +89,39 @@ impl TLWE {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct TLWELv1 {
+    s: RingLv1,
+}
+
+impl TLWELv1 {
+    pub fn new(sk: SecretKey) -> Self {
+        Self { s: sk.lv1 }
+    }
+
+    pub fn encrypt_torus(&self, torus: Torus) -> CipherTLWELv1 {
+        let a = ndim_torus_uniform();
+        let e = modular_normal_dist(0., tlwe::ALPHA);
+        let b = dot(a, self.s).wrapping_add(torus).wrapping_add(e);
+        CipherTLWELv1(a, b)
+    }
+
+    pub fn encrypt(&self, msg: bool) -> CipherTLWELv1 {
+        let m = float_to_torus(bool_normalization(msg));
+        self.encrypt_torus(m)
+    }
+
+    pub fn decrypt_torus(&self, c: CipherTLWELv1) -> Torus {
+        let (a, b) = c.describe();
+        b.wrapping_sub(dot(a, self.s))
+    }
+
+    pub fn decrypt(&self, c: CipherTLWELv1) -> bool {
+        let m = self.decrypt_torus(c);
+        m < 2u32.pow(31)
+    }
+}
+
 #[test]
 fn test_tlwe_enc_and_dec() {
     use super::sampling::random_bool_initialization;

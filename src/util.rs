@@ -21,8 +21,8 @@ pub fn float_to_torus(x: f64) -> Torus {
     //      [-0.5, 0) to [2^31, 2^32)
     //      [0, 0.5)  to [0, 2^31)
 
-    assert!(x >= -0.5);
-    assert!(x < 0.5);
+    assert!(x >= -0.5, "input: {}", x);
+    assert!(x < 0.5, "input: {}", x);
 
     let length_ring = 2f64.powi(32);
     ((if x < 0. { x + 1. } else { x }) * length_ring) as u32
