@@ -1,4 +1,6 @@
+pub mod bootstrapping;
 pub mod key;
+pub mod key_switching;
 pub mod ops;
 pub mod params;
 pub mod sampling;

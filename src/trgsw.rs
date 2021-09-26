@@ -1,74 +1,20 @@
 use super::key::SecretKey;
 use super::ops::{pmul, rmadd, vadd};
-use super::params::{tlwe, trgsw};
-use super::tlwe::{CipherTLWELv0, CipherTLWELv1, TLWE};
-use super::trlwe::{sample_extract_index, CipherTRLWE, TRLWE};
-use super::util::{float_to_torus, rotate_ring, zpoly_to_ring, RingLv0, RingLv1, Torus};
+use super::params::trgsw;
+use super::trlwe::{CipherTRLWE, TRLWE};
+use super::util::{float_to_torus, zpoly_to_ring, RingLv1, Torus};
 
 const N: usize = trgsw::N;
 const L: usize = trgsw::L;
-const T: usize = trgsw::T;
 const BG: u32 = trgsw::BG;
 const BGBIT: u32 = trgsw::BGBIT;
 const LBG: u32 = L as u32 * BGBIT;
-const NBIT: usize = trgsw::NBIT;
-const BASEBIT: u32 = trgsw::BASEBIT;
-
-const K: usize = 1 << BASEBIT;
 
 pub type Z = i8;
 pub type TRGSWMatrix = [[RingLv1; 2]; 2 * L];
 
 type ZRing = [Z; N];
 type Decomposition = ([ZRing; L], [ZRing; L]);
-
-#[derive(Clone, Debug)]
-pub struct BootstrappingKey(pub Vec<TRGSWMatrix>);
-
-impl BootstrappingKey {
-    pub fn get(&self, k: usize) -> TRGSWMatrix {
-        self.0[k]
-    }
-
-    pub fn set(&mut self, k: usize, val: TRGSWMatrix) {
-        self.0[k] = val;
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct KeySwitching(pub Vec<CipherTLWELv0>);
-
-impl KeySwitching {
-    fn new(sk: SecretKey) -> Self {
-        let s = sk.lv1;
-        let tlwe = TLWE::new(sk);
-
-        let mut v = vec![CipherTLWELv0::empty(); (K - 1) * T * N];
-
-        for k in 1..K {
-            for j in 0..T {
-                for i in 0..N {
-                    let base = 1 << (j as Torus + 1) * BASEBIT;
-                    let msg = (k as f64 * s[i] as f64) / base as f64;
-                    let msg = float_to_torus(msg - 0.5);
-                    v[i + j * N + (k - 1) * N * T] = tlwe.encrypt_torus(msg);
-                }
-            }
-        }
-
-        assert_eq!(v.len(), (K - 1) * T * N);
-
-        Self(v)
-    }
-
-    fn access(&self, i: usize, j: usize, k: usize) -> CipherTLWELv0 {
-        assert!(i < N);
-        assert!(j < T);
-        assert!(0 < k && k < K);
-
-        self.0[i + j * N + (k - 1) * N * T]
-    }
-}
 
 pub fn uninitialized_trgsw_matrix() -> TRGSWMatrix {
     [[[0; N]; 2]; 2 * L]
@@ -143,16 +89,6 @@ impl TRGSW {
         let matrix = self.coefficient(flag as i8);
         cmux(matrix, c0, c1)
     }
-
-    pub fn bootstrapping_key(&self) -> BootstrappingKey {
-        let lv0 = self.sk.lv0;
-        let mut bk = BootstrappingKey(vec![[[[0; N]; 2]; 2 * L]; tlwe::N]);
-
-        for (j, &item) in lv0.iter().enumerate().take(tlwe::N) {
-            bk.set(j, self.coefficient(item as i8));
-        }
-        bk
-    }
 }
 
 fn _decomposition(poly: RingLv1) -> [ZRing; L] {
@@ -206,57 +142,6 @@ pub fn external_product(matrix: TRGSWMatrix, c: CipherTRLWE) -> CipherTRLWE {
 
 pub fn cmux(matrix: TRGSWMatrix, c0: CipherTRLWE, c1: CipherTRLWE) -> CipherTRLWE {
     external_product(matrix, c0 - c1) + c1
-}
-
-fn rotate_trlwe_cipher(c: CipherTRLWE, k: usize) -> CipherTRLWE {
-    let (a, b) = c.describe();
-    let a_rot = rotate_ring(a, k);
-    let b_rot = rotate_ring(b, k);
-    CipherTRLWE(a_rot, b_rot)
-}
-
-pub fn blind_rotate(c0: CipherTLWELv0, bk: BootstrappingKey, c1: CipherTRLWE) -> CipherTRLWE {
-    let (a0, b0) = c0.describe();
-    let b_floor = (b0 >> (31 - NBIT)) as usize;
-    let offset = 2u32.pow(30 - NBIT as u32);
-
-    let mut c_ret = rotate_trlwe_cipher(c1, 2 * N - b_floor);
-    for (j, a0) in a0.iter().enumerate().take(tlwe::N) {
-        let a_floor = ((a0 + offset) >> (31 - NBIT)) as usize;
-        let c_ret_rot = rotate_trlwe_cipher(c_ret, a_floor);
-        c_ret = cmux(bk.get(j), c_ret_rot, c_ret);
-    }
-    c_ret
-}
-
-pub fn gate_bootstrapping(c0: CipherTLWELv0, sk: SecretKey) -> CipherTLWELv1 {
-    let tv = TRLWE::new(sk).test_vector();
-    let bk = TRGSW::new(sk).bootstrapping_key();
-    let c = blind_rotate(c0, bk, tv);
-    sample_extract_index(c, 0)
-}
-
-pub fn identity_key_switching(c: CipherTLWELv1, sk: SecretKey) -> CipherTLWELv0 {
-    let (a, b) = c.describe();
-    let ks = KeySwitching::new(sk);
-
-    let a0: RingLv0 = [0; tlwe::N];
-    let mut c0 = CipherTLWELv0(a0, b);
-
-    let offset: Torus = 1 << (31 - T * BASEBIT as usize);
-
-    for i in 0..N {
-        let ai_ = a[i].wrapping_add(offset);
-        for j in 0..T {
-            let shift = 32 - (j + 1) * BASEBIT as usize;
-            let k = (ai_ >> shift) as usize % K;
-            if k != 0 {
-                c0 = c0 - ks.access(i, j, k);
-            }
-        }
-    }
-
-    c0
 }
 
 #[test]
@@ -404,74 +289,4 @@ fn test_cmux() {
         counter1,
         counter2
     );
-}
-
-#[test]
-fn test_identity_key_switching() {
-    use super::sampling::random_bool_initialization;
-    use super::tlwe::{TLWELv1, TLWE};
-
-    let bs: [bool; 16] = random_bool_initialization();
-    let mut count = 0;
-
-    for b in bs {
-        let sk = SecretKey::new();
-        let tlwe0 = TLWE::new(sk);
-        let tlwe1 = TLWELv1::new(sk);
-        let c1 = tlwe1.encrypt(b);
-        let c0 = identity_key_switching(c1, sk);
-        let msg = tlwe0.decrypt(c0);
-
-        count += (b != msg) as usize;
-    }
-
-    assert!(count == 0, "count: {}", count);
-}
-
-// FFTじゃないと重すぎて時間がかかるのでやめとく（通ることは確認済み）
-
-#[test]
-fn test_gate_bootstrapping() {
-    use super::sampling::random_bool_initialization;
-    use super::tlwe::{TLWELv1, TLWE};
-
-    let bs: [bool; 16] = random_bool_initialization();
-    let mut count = 0;
-
-    for b in bs {
-        let sk = SecretKey::new();
-        let tlwe0 = TLWE::new(sk);
-        let tlwe1 = TLWELv1::new(sk);
-        let c = tlwe0.encrypt(b);
-        let c1 = gate_bootstrapping(c, sk);
-        let msg = tlwe1.decrypt(c1);
-
-        count += (b != msg) as usize;
-    }
-
-    assert!(count == 0, "count: {}", count);
-}
-
-// test_gate_bootstrapping と同様の理由で通常は実行しない
-
-#[test]
-fn test_homnand() {
-    use super::sampling::random_bool_initialization;
-    use super::tlwe::TLWE;
-
-    let bs: [bool; 16] = random_bool_initialization();
-    let mut count = 0;
-
-    for b in bs {
-        let sk = SecretKey::new();
-        let tlwe = TLWE::new(sk);
-        let c = tlwe.encrypt(b);
-        let c1 = gate_bootstrapping(c, sk);
-        let c0 = identity_key_switching(c1, sk);
-        let msg = tlwe.decrypt(c0);
-
-        count += (b != msg) as usize;
-    }
-
-    assert!(count == 0, "count: {}", count);
 }

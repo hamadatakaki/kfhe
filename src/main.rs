@@ -1,7 +1,7 @@
+use kfhe::bootstrapping::gate_bootstrapping;
 use kfhe::key::SecretKey;
 use kfhe::ops::dot;
 use kfhe::tlwe::{CipherTLWELv0, TLWE};
-use kfhe::trgsw::gate_bootstrapping;
 use kfhe::util::{RingLv1, Torus};
 
 fn _nand(x: bool, y: bool) -> bool {
@@ -36,4 +36,29 @@ fn main() {
         println!("{}", __nand(false, true));
         println!("{}", __nand(false, false));
     }
+}
+
+// test_gate_bootstrapping と同様の理由で通常は実行しない
+
+#[test]
+fn test_homnand() {
+    use kfhe::key_switching::identity_key_switching;
+    use kfhe::sampling::random_bool_initialization;
+    use kfhe::tlwe::TLWE;
+
+    let bs: [bool; 16] = random_bool_initialization();
+    let mut count = 0;
+
+    for b in bs {
+        let sk = SecretKey::new();
+        let tlwe = TLWE::new(sk);
+        let c = tlwe.encrypt(b);
+        let c1 = gate_bootstrapping(c, sk);
+        let c0 = identity_key_switching(c1, sk);
+        let msg = tlwe.decrypt(c0);
+
+        count += (b != msg) as usize;
+    }
+
+    assert!(count == 0, "count: {}", count);
 }
