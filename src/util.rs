@@ -17,6 +17,11 @@ pub fn boolpoly_normalization<const N: usize>(bs: [bool; N]) -> [f64; N] {
 }
 
 pub fn float_to_torus(x: f64) -> Torus {
+    let y = x - (x + 0.5).floor();
+    _float_to_torus(y)
+}
+
+fn _float_to_torus(x: f64) -> Torus {
     // [-0.5, 0.5) to Torus(u32)
     //      [-0.5, 0) to [2^31, 2^32)
     //      [0, 0.5)  to [0, 2^31)
@@ -44,6 +49,18 @@ pub fn fring_to_torus_ring<const N: usize>(xs: [f64; N]) -> [Torus; N] {
     ring
 }
 
+pub fn torus_negative(t: Torus) -> Torus {
+    (0 as Torus).wrapping_sub(t)
+}
+
+pub fn ring_negative<const N: usize>(ring: [Torus; N]) -> [Torus; N] {
+    let mut ret = [0; N];
+    for i in 0..ring.len() {
+        ret[i] = torus_negative(ring[i]);
+    }
+    ret
+}
+
 pub fn zpoly_to_ring<const N: usize>(zp: [i8; N]) -> [Torus; N] {
     let mut r = [0; N];
     for i in 0..N {
@@ -56,8 +73,8 @@ pub fn rotate_ring<const N: usize>(ring: [Torus; N], k: usize) -> [Torus; N] {
     assert!(k < 2 * N);
     let mut ret = [0; N];
     for i in 0..N {
-        let q = (i + k) / N;
-        let r = (i + k) % N;
+        let q = (2 * N - k + i) / N;
+        let r = (2 * N - k + i) % N;
         ret[i] = if q % 2 == 0 {
             ring[r]
         } else {
@@ -78,4 +95,25 @@ fn test_float_to_torus() {
 fn test_torus_to_float() {
     assert_eq!(torus_to_float(float_to_torus(0.)), 0.);
     assert_eq!(torus_to_float(float_to_torus(-0.5)), -0.5);
+}
+
+#[test]
+fn test_rotate_ring() {
+    const N: usize = 1000;
+    let mut arr = [0; N];
+    for i in 0..N {
+        arr[i] = i as Torus;
+    }
+
+    for k in 0..N {
+        let rot = rotate_ring(arr, k);
+        for i in 0..N {
+            if i >= k {
+                assert_eq!(rot[i], arr[i - k]);
+            } else {
+                let ans = torus_negative(arr[N - k + i]);
+                assert_eq!(rot[i], ans);
+            }
+        }
+    }
 }

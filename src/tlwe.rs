@@ -2,7 +2,9 @@ use super::key::SecretKey;
 use super::ops::{dot, vadd, vsub};
 use super::params::tlwe;
 use super::sampling::{modular_normal_dist, ndim_torus_uniform};
-use super::util::{bool_normalization, float_to_torus, RingLv0, RingLv1, Torus};
+use super::util::{
+    bool_normalization, float_to_torus, ring_negative, torus_negative, RingLv0, RingLv1, Torus,
+};
 
 #[derive(Clone, Copy, Debug)]
 pub struct CipherTLWELv0(pub RingLv0, pub Torus);
@@ -47,12 +49,32 @@ impl std::ops::Sub for CipherTLWELv0 {
     }
 }
 
+impl std::ops::Neg for CipherTLWELv0 {
+    type Output = Self;
+    fn neg(self) -> Self {
+        let (a0, b0) = self.describe();
+        let b = torus_negative(b0);
+        let a = ring_negative(a0);
+        CipherTLWELv0(a, b)
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct CipherTLWELv1(pub RingLv1, pub Torus);
 
 impl CipherTLWELv1 {
     pub fn describe(self) -> (RingLv1, Torus) {
         (self.0, self.1)
+    }
+}
+
+impl std::ops::Neg for CipherTLWELv1 {
+    type Output = Self;
+    fn neg(self) -> Self {
+        let (a0, b0) = self.describe();
+        let b = torus_negative(b0);
+        let a = ring_negative(a0);
+        CipherTLWELv1(a, b)
     }
 }
 
@@ -120,6 +142,16 @@ impl TLWELv1 {
         let m = self.decrypt_torus(c);
         m < 2u32.pow(31)
     }
+}
+
+pub fn tlwe_nand(x: bool, y: bool) -> bool {
+    let sk = SecretKey::new();
+    let tlwe = TLWE::new(sk);
+    let c0 = CipherTLWELv0::clearly_true();
+    let c1 = tlwe.encrypt(x);
+    let c2 = tlwe.encrypt(y);
+    let c = c0 - (c1 + c2);
+    tlwe.decrypt(c)
 }
 
 #[test]

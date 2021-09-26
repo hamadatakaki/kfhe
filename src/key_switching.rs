@@ -24,7 +24,8 @@ impl KeySwitchingKey {
                 for i in 0..N {
                     let base = 1 << (j as Torus + 1) * BASEBIT;
                     let msg = (k as f64 * s[i] as f64) / base as f64;
-                    let msg = float_to_torus(msg - 0.5);
+                    // let msg = if msg >= 0.5 { msg - 1.0 } else { msg };
+                    let msg = float_to_torus(msg);
                     v[i + j * N + (k - 1) * N * T] = tlwe.encrypt_torus(msg);
                 }
             }
@@ -72,18 +73,19 @@ fn test_identity_key_switching() {
     use super::sampling::random_bool_initialization;
     use super::tlwe::{TLWELv1, TLWE};
 
+    let sk = SecretKey::new();
+    let tlwe0 = TLWE::new(sk);
+    let tlwe1 = TLWELv1::new(sk);
+
     let bs: [bool; 16] = random_bool_initialization();
     let mut count = 0;
 
     for b in bs {
-        let sk = SecretKey::new();
-        let tlwe0 = TLWE::new(sk);
-        let tlwe1 = TLWELv1::new(sk);
         let c1 = tlwe1.encrypt(b);
         let c0 = identity_key_switching(c1, sk);
         let msg = tlwe0.decrypt(c0);
 
-        count += (b != msg) as usize;
+        count += (b ^ msg) as usize;
     }
 
     assert!(count == 0, "count: {}", count);

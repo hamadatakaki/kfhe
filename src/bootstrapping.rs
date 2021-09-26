@@ -40,7 +40,7 @@ fn rotate_trlwe_cipher(c: CipherTRLWE, k: usize) -> CipherTRLWE {
     CipherTRLWE(a_rot, b_rot)
 }
 
-pub fn blind_rotate(c0: CipherTLWELv0, bk: BootstrappingKey, c1: CipherTRLWE) -> CipherTRLWE {
+pub fn blind_rotate(c0: CipherTLWELv0, c1: CipherTRLWE, bk: BootstrappingKey) -> CipherTRLWE {
     let (a0, b0) = c0.describe();
     let b_floor = (b0 >> (31 - NBIT)) as usize;
     let offset = 2u32.pow(30 - NBIT as u32);
@@ -57,30 +57,97 @@ pub fn blind_rotate(c0: CipherTLWELv0, bk: BootstrappingKey, c1: CipherTRLWE) ->
 pub fn gate_bootstrapping(c0: CipherTLWELv0, sk: SecretKey) -> CipherTLWELv1 {
     let tv = TRLWE::new(sk).test_vector();
     let bk = bootstrapping_key(sk);
-    let c = blind_rotate(c0, bk, tv);
+    let c = blind_rotate(c0, tv, bk);
     sample_extract_index(c, 0)
+}
+
+#[test]
+fn test_trlwe_rotate() {
+    use rand_distr::{Distribution, Uniform};
+
+    use super::tlwe::TLWELv1;
+
+    let sk = SecretKey::new();
+    let trlwe = TRLWE::new(sk);
+    let tlwe1 = TLWELv1::new(sk);
+    let tv = trlwe.test_vector();
+
+    // k is random in [0, 2*N)
+    let uni = Uniform::new_inclusive(0, 2 * N - 1);
+    let mut rng = rand::thread_rng();
+    let k = uni.sample(&mut rng);
+
+    let rot = rotate_trlwe_cipher(tv, k);
+    for i in 0..N {
+        let q = (k + i) / N;
+        let r = (k + i) % N;
+        let mut rot_c = sample_extract_index(rot, r);
+        for _ in 0..q {
+            rot_c = -rot_c;
+        }
+        let rot_b = tlwe1.decrypt(rot_c);
+        let c = sample_extract_index(tv, i);
+        let b = tlwe1.decrypt(c);
+        assert_eq!(b, rot_b);
+    }
+}
+
+#[test]
+fn test_blind_rotate() {
+    use super::tlwe::TLWELv1;
+
+    let sk = SecretKey::new();
+    let tlwe1 = TLWELv1::new(sk);
+    let c0 = CipherTLWELv0::clearly_true();
+    let trlwe = TRLWE::new(sk);
+    let tv = trlwe.test_vector();
+    let bk = bootstrapping_key(sk);
+
+    let rot_c = blind_rotate(c0, tv, bk);
+    let c1 = sample_extract_index(rot_c, 0);
+    let b1 = tlwe1.decrypt(c1);
+
+    assert_eq!(true, b1);
+}
+
+#[test]
+fn test_blind_rotate_2() {
+    use super::tlwe::TLWELv1;
+
+    let sk = SecretKey::new();
+    let tlwe1 = TLWELv1::new(sk);
+    let c0 = CipherTLWELv0::clearly_true();
+    let trlwe = TRLWE::new(sk);
+    let tv = trlwe.test_vector();
+    let bk = bootstrapping_key(sk);
+
+    let rot_c = blind_rotate(-c0, tv, bk);
+    let c1 = sample_extract_index(rot_c, 0);
+    let b1 = tlwe1.decrypt(c1);
+
+    assert_eq!(false, b1);
 }
 
 // FFTじゃないと重すぎて時間がかかる
 
-#[test]
-fn test_gate_bootstrapping() {
-    use super::sampling::random_bool_initialization;
-    use super::tlwe::{TLWELv1, TLWE};
+// #[test]
+// fn test_gate_bootstrapping() {
+//     use super::sampling::random_bool_initialization;
+//     use super::tlwe::{TLWELv1, TLWE};
 
-    let bs: [bool; 16] = random_bool_initialization();
-    let mut count = 0;
+//     let bs: [bool; 16] = random_bool_initialization();
+//     let mut count = 0;
 
-    for b in bs {
-        let sk = SecretKey::new();
-        let tlwe0 = TLWE::new(sk);
-        let tlwe1 = TLWELv1::new(sk);
-        let c = tlwe0.encrypt(b);
-        let c1 = gate_bootstrapping(c, sk);
-        let msg = tlwe1.decrypt(c1);
+//     for b in bs {
+//         let sk = SecretKey::new();
+//         let tlwe0 = TLWE::new(sk);
+//         let tlwe1 = TLWELv1::new(sk);
+//         let c = tlwe0.encrypt(b);
+//         let c1 = gate_bootstrapping(c, sk);
+//         let msg = tlwe1.decrypt(c1);
 
-        count += (b != msg) as usize;
-    }
+//         count += (b ^ msg) as usize;
+//     }
 
-    assert!(count == 0, "count: {}", count);
-}
+//     assert!(count == 0, "count: {}", count);
+// }
